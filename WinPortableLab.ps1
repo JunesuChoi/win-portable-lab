@@ -864,6 +864,81 @@ function Show-WplGui {
         }
     }
 
+    # Optional online lookup for the one vendor that publishes a stable query
+    # endpoint. Never called during analysis; only from an explicit button so a
+    # field machine without internet is unaffected.
+    function Get-WplNvidiaLatestDriver([string]$AdapterName) {
+        $result = [pscustomobject]@{ Success=$false; Version=$null; Released=$null; Url=$null; Error=$null }
+        try {
+            $series = Invoke-RestMethod -Uri 'https://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeID=2' -TimeoutSec 12 -ErrorAction Stop
+            $seriesList = @($series.LookupValueSearch.LookupValues.LookupValue)
+            # Match the widest series name that appears in the adapter string.
+            $normalized = ($AdapterName -replace 'NVIDIA','').Trim()
+            $candidate = $null
+            foreach ($entry in $seriesList) {
+                $name = [string]$entry.Name
+                if ($name -match '\(Notebook') { continue }
+                $token = ($name -replace 'GeForce ','') -replace ' Series',''
+                if ($token -and $normalized -match [regex]::Escape($token.Split(' ')[0])) {
+                    if (-not $candidate -or $token.Length -gt $candidate.Token.Length) {
+                        $candidate = [pscustomobject]@{ Psid=[string]$entry.Value; Token=$token }
+                    }
+                }
+            }
+            if (-not $candidate) { $result.Error = 'series-not-matched'; return $result }
+            $products = Invoke-RestMethod -Uri ('https://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeID=3&ParentID={0}' -f $candidate.Psid) -TimeoutSec 12 -ErrorAction Stop
+            $productList = @($products.LookupValueSearch.LookupValues.LookupValue)
+            $best = $null
+            foreach ($product in $productList) {
+                $productName = ([string]$product.Name -replace 'NVIDIA ','').Trim()
+                if ($normalized -like ('*' + $productName + '*')) {
+                    if (-not $best -or $productName.Length -gt $best.Name.Length) {
+                        $best = [pscustomobject]@{ Pfid=[string]$product.Value; Name=$productName }
+                    }
+                }
+            }
+            if (-not $best) { $result.Error = 'product-not-matched'; return $result }
+            $osId = if ([Environment]::OSVersion.Version.Build -ge 22000) { '135' } else { '57' }
+            $languageCode = if ($script:GuiLanguage -eq 'ko') { '1042' } else { '1033' }
+            $lookup = 'https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&psid={0}&pfid={1}&osID={2}&languageCode={3}&isWHQL=1&dch=1&numberOfResults=1'
+            $response = Invoke-RestMethod -Uri ($lookup -f $candidate.Psid,$best.Pfid,$osId,$languageCode) -TimeoutSec 15 -ErrorAction Stop
+            $info = @($response.IDS)[0].downloadInfo
+            if (-not $info) { $result.Error = 'no-driver-returned'; return $result }
+            $result.Success = $true
+            $result.Version = [string]$info.Version
+            $result.Released = [string]$info.ReleaseDateTime
+            $result.Url = [string]$info.DetailsURL
+        }
+        catch { $result.Error = $_.Exception.Message }
+        return $result
+    }
+
+    # Compares two dotted driver versions numerically so 616.56 sorts above 99.9.
+    function Compare-WplDriverVersion([string]$Installed,[string]$Latest) {
+        $parse = {
+            param($value)
+            $digits = @(($value -split '[^0-9]+') | Where-Object { $_ })
+            if (-not $digits.Count) { return $null }
+            # NVIDIA reports the installed driver as 32.0.15.6636 style, where the
+            # marketing version is the trailing five digits.
+            if ($digits.Count -ge 4) {
+                $tail = ($digits[-2] + $digits[-1])
+                if ($tail.Length -ge 5) { $tail = $tail.Substring($tail.Length - 5) }
+                return [double]($tail.Insert($tail.Length - 2,'.'))
+            }
+            return [double]($digits -join '.')
+        }
+        try {
+            $installedValue = & $parse $Installed
+            $latestValue = & $parse $Latest
+            if ($null -eq $installedValue -or $null -eq $latestValue) { return $null }
+            if ($latestValue -gt $installedValue) { return 'outdated' }
+            if ($latestValue -lt $installedValue) { return 'newer-than-published' }
+            return 'current'
+        }
+        catch { return $null }
+    }
+
     # Vendor support pages for firmware and graphics drivers. Only official
     # first-party destinations are listed; nothing is downloaded automatically.
     function Get-WplVendorSupportUrl([string]$Kind,[string]$Vendor) {
@@ -897,29 +972,59 @@ function Show-WplGui {
         $biosDate = ConvertTo-LocalDate $Bios.ReleaseDate
         if ($biosDate) {
             $ageMonths = [math]::Round(($now - $biosDate).TotalDays / 30.44,0)
-            if ($ageMonths -ge 18) {
-                $vendor = if ($Board) { [string]$Board.Manufacturer } else { [string]$Bios.Manufacturer }
+            $vendor = if ($Board) { [string]$Board.Manufacturer } else { [string]$Bios.Manufacturer }
+            $supportUrl = Get-WplVendorSupportUrl 'bios' $vendor
+            if ($supportUrl) {
+                # As with drivers, a recent release date is not proof of being
+                # current, so the vendor destination is always offered.
+                $severity = if ($ageMonths -ge 36) { 'caution' } elseif ($ageMonths -ge 18) { 'info' } else { 'none' }
+                $detail = if ($severity -eq 'none') {
+                        Get-WplText -Key AdviceBiosRecent -Language $script:GuiLanguage -ArgumentList @([string]$Bios.SMBIOSBIOSVersion,$biosDate.ToString('yyyy-MM-dd'),$ageMonths)
+                    } else {
+                        Get-WplText -Key AdviceBiosAge -Language $script:GuiLanguage -ArgumentList @([string]$Bios.SMBIOSBIOSVersion,$biosDate.ToString('yyyy-MM-dd'),$ageMonths)
+                    }
                 $advice.Add([pscustomobject]@{
                     Kind = 'bios'
-                    Severity = if ($ageMonths -ge 36) { 'caution' } else { 'info' }
+                    Severity = $severity
                     Subject = (@($vendor,[string]$Board.Product) | Where-Object { $_ }) -join ' '
-                    Detail = Get-WplText -Key AdviceBiosAge -Language $script:GuiLanguage -ArgumentList @([string]$Bios.SMBIOSBIOSVersion,$biosDate.ToString('yyyy-MM-dd'),$ageMonths)
-                    Url = Get-WplVendorSupportUrl 'bios' $vendor
+                    Detail = $detail
+                    Url = $supportUrl
+                    Vendor = $vendor
+                    InstalledVersion = [string]$Bios.SMBIOSBIOSVersion
                 })
             }
         }
 
         foreach ($adapter in @($Graphics)) {
             $driverDate = ConvertTo-LocalDate $adapter.DriverDate
-            if (-not $driverDate) { continue }
-            $ageMonths = [math]::Round(($now - $driverDate).TotalDays / 30.44,0)
-            if ($ageMonths -lt 12) { continue }
+            $vendor = [string]$adapter.AdapterCompatibility
+            $supportUrl = Get-WplVendorSupportUrl 'gpu' $vendor
+            $canQuery = $vendor -match '(?i)nvidia'
+            $ageMonths = if ($driverDate) { [math]::Round(($now - $driverDate).TotalDays / 30.44,0) } else { $null }
+            # A recent driver date does not mean the driver is current, so an entry
+            # is emitted whenever a vendor destination exists. Severity conveys
+            # whether age alone already warrants attention.
+            $severity = if ($null -ne $ageMonths -and $ageMonths -ge 24) { 'caution' }
+                elseif ($null -ne $ageMonths -and $ageMonths -ge 12) { 'info' }
+                else { 'none' }
+            if (-not $supportUrl -and -not $canQuery) { continue }
+            $detail = if ($null -eq $ageMonths) {
+                    Get-WplText -Key AdviceGpuDriverUnknownDate -Language $script:GuiLanguage -ArgumentList @([string]$adapter.DriverVersion)
+                }
+                elseif ($severity -eq 'none') {
+                    Get-WplText -Key AdviceGpuDriverRecent -Language $script:GuiLanguage -ArgumentList @([string]$adapter.DriverVersion,$driverDate.ToString('yyyy-MM-dd'),$ageMonths)
+                }
+                else {
+                    Get-WplText -Key AdviceGpuDriverAge -Language $script:GuiLanguage -ArgumentList @([string]$adapter.DriverVersion,$driverDate.ToString('yyyy-MM-dd'),$ageMonths)
+                }
             $advice.Add([pscustomobject]@{
                 Kind = 'gpu'
-                Severity = if ($ageMonths -ge 24) { 'caution' } else { 'info' }
+                Severity = $severity
                 Subject = [string]$adapter.Name
-                Detail = Get-WplText -Key AdviceGpuDriverAge -Language $script:GuiLanguage -ArgumentList @([string]$adapter.DriverVersion,$driverDate.ToString('yyyy-MM-dd'),$ageMonths)
-                Url = Get-WplVendorSupportUrl 'gpu' ([string]$adapter.AdapterCompatibility)
+                Detail = $detail
+                Url = $supportUrl
+                Vendor = $vendor
+                InstalledVersion = [string]$adapter.DriverVersion
             })
         }
 
@@ -983,10 +1088,15 @@ function Show-WplGui {
             $card.Padding = New-Object Windows.Thickness 12
             $card.Margin = New-Object Windows.Thickness 0,0,0,8
             $card.BorderThickness = New-Object Windows.Thickness 2,0,0,0
-            $card.BorderBrush = $window.TryFindResource($(if ($item.Severity -eq 'caution') { 'Caution' } else { 'Accent' }))
+            $card.BorderBrush = $window.TryFindResource($(switch ($item.Severity) { 'caution' { 'Caution' } 'info' { 'Accent' } default { 'Hairline' } }))
             $stack = New-Object Windows.Controls.StackPanel
             $heading = New-Object Windows.Controls.TextBlock
-            $heading.Text = Get-WplText -Key $(if ($item.Kind -eq 'bios') { 'AdviceBiosHeading' } else { 'AdviceGpuHeading' }) -Language $script:GuiLanguage
+            $headingKey = if ($item.Severity -eq 'none') {
+                    if ($item.Kind -eq 'bios') { 'AdviceBiosCheckHeading' } else { 'AdviceGpuCheckHeading' }
+                } else {
+                    if ($item.Kind -eq 'bios') { 'AdviceBiosHeading' } else { 'AdviceGpuHeading' }
+                }
+            $heading.Text = Get-WplText -Key $headingKey -Language $script:GuiLanguage
             $heading.FontWeight = 'SemiBold'
             $heading.FontSize = 12
             $heading.Foreground = $window.TryFindResource('Ink')
@@ -1005,7 +1115,7 @@ function Show-WplGui {
                 $linkButton.Style = $window.TryFindResource('ActionButton')
                 $linkButton.HorizontalAlignment = 'Left'
                 $linkButton.Margin = New-Object Windows.Thickness 0,8,0,0
-                $linkButton.Padding = New-Object Windows.Thickness 10,4
+                $linkButton.Padding = New-Object Windows.Thickness 10,4,10,4
                 $linkButton.FontSize = 11
                 $linkButton.Tag = $item.Url
                 $linkButton.ToolTip = $item.Url
@@ -1015,6 +1125,62 @@ function Show-WplGui {
                     catch { [System.Windows.MessageBox]::Show($_.Exception.Message,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null }
                 })
                 $stack.Children.Add($linkButton) | Out-Null
+            }
+            # Only NVIDIA publishes a stable version query, so the online check
+            # button appears for that vendor alone. It runs on click, not during
+            # analysis, and reports failure plainly instead of guessing.
+            if ($item.Kind -eq 'gpu' -and $item.Vendor -match '(?i)nvidia') {
+                $checkButton = New-Object Windows.Controls.Button
+                $checkButton.Content = Get-WplText -Key GuiCheckLatestDriver -Language $script:GuiLanguage
+                $checkButton.Style = $window.TryFindResource('PrimaryButton')
+                $checkButton.HorizontalAlignment = 'Left'
+                $checkButton.Margin = New-Object Windows.Thickness 0,8,0,0
+                $checkButton.Padding = New-Object Windows.Thickness 10,4,10,4
+                $checkButton.FontSize = 11
+                $resultText = New-Object Windows.Controls.TextBlock
+                $resultText.TextWrapping = 'Wrap'
+                $resultText.FontSize = 11
+                $resultText.LineHeight = 17
+                $resultText.Margin = New-Object Windows.Thickness 0,6,0,0
+                $resultText.Visibility = 'Collapsed'
+                $checkButton.Add_Click({
+                    param($sender,$eventArgs)
+                    $sender.IsEnabled = $false
+                    $resultText.Visibility = 'Visible'
+                    $resultText.Foreground = $window.TryFindResource('InkSubtle')
+                    $resultText.Text = Get-WplText -Key GuiCheckingLatest -Language $script:GuiLanguage
+                    $detailWindow.Dispatcher.Invoke([action]{},'Render')
+                    $lookup = Get-WplNvidiaLatestDriver ([string]$item.Subject)
+                    if (-not $lookup.Success) {
+                        $resultText.Foreground = $window.TryFindResource('Caution')
+                        $resultText.Text = Get-WplText -Key GuiCheckLatestFailed -Language $script:GuiLanguage -ArgumentList @([string]$lookup.Error)
+                        $sender.IsEnabled = $true
+                        return
+                    }
+                    $verdict = Compare-WplDriverVersion ([string]$item.InstalledVersion) ([string]$lookup.Version)
+                    switch ($verdict) {
+                        'outdated' {
+                            $resultText.Foreground = $window.TryFindResource('Caution')
+                            $resultText.Text = Get-WplText -Key GuiLatestAvailable -Language $script:GuiLanguage -ArgumentList @([string]$lookup.Version,[string]$lookup.Released)
+                        }
+                        'current' {
+                            $resultText.Foreground = $window.TryFindResource('Ok')
+                            $resultText.Text = Get-WplText -Key GuiLatestCurrent -Language $script:GuiLanguage -ArgumentList @([string]$lookup.Version)
+                        }
+                        'newer-than-published' {
+                            $resultText.Foreground = $window.TryFindResource('InkSubtle')
+                            $resultText.Text = Get-WplText -Key GuiLatestAhead -Language $script:GuiLanguage -ArgumentList @([string]$lookup.Version)
+                        }
+                        default {
+                            $resultText.Foreground = $window.TryFindResource('InkSubtle')
+                            $resultText.Text = Get-WplText -Key GuiLatestUnknown -Language $script:GuiLanguage -ArgumentList @([string]$lookup.Version,[string]$lookup.Released)
+                        }
+                    }
+                    if ($lookup.Url) { $sender.Tag = [string]$lookup.Url; $sender.ToolTip = [string]$lookup.Url }
+                    $sender.IsEnabled = $true
+                })
+                $stack.Children.Add($checkButton) | Out-Null
+                $stack.Children.Add($resultText) | Out-Null
             }
             $card.Child = $stack
             $advicePanel.Children.Add($card) | Out-Null

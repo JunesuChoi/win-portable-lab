@@ -295,6 +295,44 @@ Describe 'GUI snapshot and launcher behavior contract' {
         Assert-WplTest ($source -match 'GuiOpenVendorPage') 'The vendor page button text is missing.'
     }
 
+    It 'queries the vendor for a real latest version where an endpoint exists' {
+        # NVIDIA is the only vendor with a stable public query, so the online
+        # check must be limited to it and must never run during analysis.
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($source -match 'function Get-WplNvidiaLatestDriver') 'The NVIDIA lookup function is missing.'
+        Assert-WplTest ($source -match 'function Compare-WplDriverVersion') 'The driver version comparison is missing.'
+        Assert-WplTest ($source -match 'GuiCheckLatestDriver') 'The online check button text is missing.'
+        Assert-WplTest ($source -match "Vendor -match '\(\?i\)nvidia'") 'The online check is not restricted to the supported vendor.'
+        # The lookup runs from a click handler, not from Set-GuiUpdateAdvice.
+        $adviceStart = $source.IndexOf('function Set-GuiUpdateAdvice')
+        $adviceEnd = $source.IndexOf('function Show-GuiHardwareDetail')
+        Assert-WplTest ($adviceStart -ge 0 -and $adviceEnd -gt $adviceStart) 'Could not isolate the advisory builder.'
+        $adviceBody = $source.Substring($adviceStart,$adviceEnd - $adviceStart)
+        Assert-WplTest (-not ($adviceBody -match 'Get-WplNvidiaLatestDriver')) 'Analysis must not perform a network lookup.'
+        # Every reported state must have wording, including failure.
+        foreach ($key in @('GuiLatestAvailable','GuiLatestCurrent','GuiLatestAhead','GuiLatestUnknown','GuiCheckLatestFailed')) {
+            Assert-WplTest ($source -match $key) "Missing online-check wording: $key"
+        }
+    }
+
+    It 'always offers a vendor destination even when the age threshold is not met' {
+        # A recent release date is not proof of being current, so the advisory
+        # entry is emitted regardless and severity carries the urgency.
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($source -match "'none'") 'There is no non-urgent advisory severity.'
+        foreach ($key in @('AdviceBiosRecent','AdviceGpuDriverRecent','AdviceBiosCheckHeading','AdviceGpuCheckHeading')) {
+            Assert-WplTest ($source -match $key) "Missing non-urgent advisory wording: $key"
+        }
+    }
+
+    It 'constructs WPF thickness values with a supported overload' {
+        # Windows.Thickness accepts one or four values; two arguments throws at
+        # runtime and only surfaces when the dialog is actually opened.
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        $bad = @([regex]::Matches($source,'New-Object Windows\.Thickness ([0-9]+,[0-9]+)(?![0-9,])') | ForEach-Object { $_.Value })
+        Assert-WplTest ($bad.Count -eq 0) "Thickness needs one or four values: $($bad -join ' | ')"
+    }
+
     It 'wires task, list, detail, and scrolling surfaces explicitly' {
         $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
         foreach ($pattern in @('x:Name="SidebarScroll"','ScrollViewer\.VerticalScrollBarVisibility="Auto"','x:Name="DetailScroll"','Add_PreviewMouseWheel','x:Name="SelectedToolText"','x:Name="FilterAllButton"','x:Name="SnapshotText"')) {

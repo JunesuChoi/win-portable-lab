@@ -140,8 +140,20 @@ function Get-WplText {
         GuiOpenVendorPage=@{ko='제조사 지원 페이지 열기';en='Open vendor support page'}
         AdviceBiosHeading=@{ko='BIOS 업데이트 확인 권장';en='Check for a BIOS update'}
         AdviceGpuHeading=@{ko='그래픽 드라이버 업데이트 확인 권장';en='Check for a graphics driver update'}
+        AdviceBiosCheckHeading=@{ko='BIOS 버전 확인';en='BIOS version'}
+        AdviceGpuCheckHeading=@{ko='그래픽 드라이버 버전 확인';en='Graphics driver version'}
+        AdviceBiosRecent=@{ko='설치된 BIOS {0} (출시 {1})은 약 {2}개월 전 버전입니다. 비교적 최근이지만 더 새 버전이 나왔을 수 있으니 필요하면 제조사 페이지에서 확인하세요.';en='The installed BIOS {0} (released {1}) is about {2} months old. That is fairly recent, but a newer release may exist; check the vendor page if needed.'}
+        AdviceGpuDriverRecent=@{ko='드라이버 {0} (출시 {1})은 약 {2}개월 전 버전입니다. 비교적 최근이지만 더 새 버전이 나왔을 수 있으니 아래에서 확인할 수 있습니다.';en='Driver {0} (released {1}) is about {2} months old. That is fairly recent, but a newer release may exist; you can check below.'}
+        AdviceGpuDriverUnknownDate=@{ko='드라이버 {0}의 출시 날짜를 확인할 수 없습니다. 최신 버전은 아래에서 확인하세요.';en='The release date for driver {0} could not be read. Check the latest version below.'}
         AdviceBiosAge=@{ko='설치된 BIOS {0} (출시 {1})은 약 {2}개월 전 버전입니다. 제조사 페이지에서 더 새 버전이 있는지 확인하세요. 이 도구는 최신 버전 목록을 조회하지 않습니다.';en='The installed BIOS {0} (released {1}) is about {2} months old. Check the vendor page for a newer release. This tool does not query vendor catalogues.'}
         AdviceGpuDriverAge=@{ko='드라이버 {0} (출시 {1})은 약 {2}개월 전 버전입니다. 제조사 페이지에서 더 새 버전이 있는지 확인하세요. 이 도구는 최신 버전 목록을 조회하지 않습니다.';en='Driver {0} (released {1}) is about {2} months old. Check the vendor page for a newer release. This tool does not query vendor catalogues.'}
+        GuiCheckLatestDriver=@{ko='최신 버전 온라인 확인';en='Check latest version online'}
+        GuiCheckingLatest=@{ko='제조사 서버에서 최신 버전을 확인하는 중입니다...';en='Checking the vendor server for the latest version...'}
+        GuiCheckLatestFailed=@{ko='온라인 확인 실패({0}). 네트워크가 없거나 제조사 응답이 바뀌었을 수 있습니다. 제조사 페이지에서 직접 확인하세요.';en='Online check failed ({0}). There may be no network, or the vendor response changed. Confirm on the vendor page instead.'}
+        GuiLatestAvailable=@{ko='최신 버전 {0} (출시 {1})이 있습니다. 설치본보다 새 버전입니다.';en='Version {0} (released {1}) is available and is newer than what is installed.'}
+        GuiLatestCurrent=@{ko='설치된 드라이버가 최신입니다 ({0}).';en='The installed driver is current ({0}).'}
+        GuiLatestAhead=@{ko='설치된 드라이버가 공개된 최신본 {0}보다 새 버전입니다. 베타나 OEM 빌드일 수 있습니다.';en='The installed driver is newer than the published release {0}. It may be a beta or OEM build.'}
+        GuiLatestUnknown=@{ko='제조사 최신본은 {0} (출시 {1})입니다. 설치본과 자동 비교하지 못했으니 직접 확인하세요.';en='The vendor lists {0} (released {1}). Automatic comparison was not possible, so verify manually.'}
         UserPathNone=@{ko='등록된 사용자 경로가 없습니다. 파일 위치: {0}';en='No user-declared paths are registered. File location: {0}'}
         UserPathIdRequired=@{ko='도구 실행 ID가 필요합니다. -Id 값을 지정하세요.';en='A launcher id is required. Provide -Id.'}
         UserPathPathRequired=@{ko='실행 파일 경로가 필요합니다. -Path 값을 지정하세요.';en='An executable path is required. Provide -Path.'}

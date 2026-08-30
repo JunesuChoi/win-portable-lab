@@ -100,6 +100,21 @@ Nothing is downloaded or installed automatically. A page opens in the default br
 
 A failed BIOS update can leave a mainboard unable to boot. Follow the vendor's own instructions and do not proceed where power loss is a risk. If replacing a graphics driver keeps failing, see the [DDU guide](tools/DDU.md).
 
+### Checking the latest version online
+
+For NVIDIA graphics the detail window can **query the real latest version**. Pressing `Check latest version online` asks the vendor server and compares it with what is installed.
+
+| Result | Meaning |
+|---|---|
+| Version N is available | A newer release than the installed driver was confirmed |
+| The installed driver is current | It matches the published release |
+| Newer than the published release | Likely a beta or OEM build |
+| Online check failed | No network, or the vendor response changed. Verify manually |
+
+The query runs only on that button press. Analysis never touches the network, so every other feature works unchanged on a field machine without internet.
+
+AMD and Intel graphics, and mainboard BIOS, have no public query endpoint, so they receive the date-based advisory and a vendor link only. That keeps the console from asserting currency it cannot verify.
+
 ## Per-tool guides
 
 Option-level detail and pass criteria live in the documents below. Selecting a tool in the GUI and pressing `Selected tool guide` opens the same file.
