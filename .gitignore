@@ -1,20 +1,20 @@
-reports/*
-!reports/.gitkeep
-recommendations/*
-!recommendations/.gitkeep
+# Runtime output. These directories are created by Initialize-WplRuntimeDirectory
+# on first run, so no placeholder file is tracked to hold the tree open.
+reports/
+recommendations/
+sessions/
+logs/
+downloads/
+.retired/
+offline-packs/
+
+# The tools tree keeps only its bilingual purpose documentation; Setup-Tools.ps1
+# creates the per-tool directories and third-party binaries never land in git.
 tools/*
-!tools/.gitkeep
 !tools/README.md
 !tools/*/
 tools/*/*
 !tools/*/README.md
-downloads/
-.retired/
-offline-packs/
-sessions/*
-!sessions/.gitkeep
-logs/*
-!logs/.gitkeep
 *.log
 *.tmp
 .vs/

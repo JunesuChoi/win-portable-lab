@@ -56,6 +56,24 @@ function Test-WplAdministrator {
     ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+# Runtime output directories are created on demand instead of being tracked as
+# empty placeholders, so a fresh clone carries only real content. Every entry is
+# either gitignored output or the tools tree that Setup-Tools.ps1 populates.
+function Initialize-WplRuntimeDirectory {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Root)
+    $resolved = (Resolve-Path -LiteralPath $Root).Path
+    $created = [Collections.Generic.List[string]]::new()
+    foreach ($relative in @('tools','reports','recommendations','sessions','logs')) {
+        $path = Join-Path $resolved $relative
+        if (-not (Test-Path -LiteralPath $path -PathType Container)) {
+            New-Item -ItemType Directory -Path $path -Force | Out-Null
+            $created.Add($relative)
+        }
+    }
+    return @($created)
+}
+
 function Resolve-WplExecutable {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][object]$Launcher)
@@ -111,4 +129,4 @@ function Get-WplToolOverride {
     return Get-Item -LiteralPath $declared
 }
 
-Export-ModuleMember -Function Read-WplJson,Read-WplJsonArray,Get-WplRuntimePaths,Get-WplPackageDefinitions,Test-WplAdministrator,Resolve-WplExecutable,Get-WplToolOverridePath,Read-WplToolOverrides,Get-WplToolOverride
+Export-ModuleMember -Function Read-WplJson,Read-WplJsonArray,Get-WplRuntimePaths,Get-WplPackageDefinitions,Test-WplAdministrator,Initialize-WplRuntimeDirectory,Resolve-WplExecutable,Get-WplToolOverridePath,Read-WplToolOverrides,Get-WplToolOverride

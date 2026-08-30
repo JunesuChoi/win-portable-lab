@@ -562,4 +562,34 @@ Describe 'Network driver recovery contract' {
         $wrong = @($claimed | Where-Object { $_ -ne $actual } | Sort-Object -Unique)
         Assert-WplTest ($wrong.Count -eq 0) "README claims test count $($wrong -join ', ') but the suite has $actual."
     }
+
+    It 'creates runtime directories instead of tracking empty placeholders' {
+        # Empty .gitkeep files existed only to hold the tree open in git. The
+        # console creates these directories on first run, so a fresh clone must
+        # not depend on tracked placeholders.
+        $module = Get-Content -LiteralPath (Join-Path $root 'src\WinPortableLab.Core.psm1') -Raw
+        Assert-WplTest ($module -match 'function Initialize-WplRuntimeDirectory') 'Initialize-WplRuntimeDirectory is missing.'
+        Assert-WplTest ($module -match 'Export-ModuleMember[^\r\n]*Initialize-WplRuntimeDirectory') 'Initialize-WplRuntimeDirectory is not exported.'
+        $function = [regex]::Match($module,'(?s)function Initialize-WplRuntimeDirectory.*?\n\}')
+        Assert-WplTest ($function.Success) 'Initialize-WplRuntimeDirectory body could not be located.'
+        foreach ($directory in @('tools','reports','recommendations','sessions','logs')) {
+            Assert-WplTest ($function.Value -match "'$directory'") "Runtime directory not created on demand: $directory"
+        }
+        # Both entry points must prepare the tree before writing anything.
+        foreach ($entry in @('WinPortableLab.ps1','scripts\Test-Repository.ps1')) {
+            $source = Get-Content -LiteralPath (Join-Path $root $entry) -Raw
+            Assert-WplTest ($source -match 'Initialize-WplRuntimeDirectory') "$entry does not create the runtime directories."
+        }
+    }
+
+    It 'tracks no empty placeholder files and keeps the tools documentation' {
+        $tracked = @(& git -C $root ls-files)
+        Assert-WplTest ($tracked.Count -gt 0) 'git ls-files returned nothing.'
+        $placeholders = @($tracked | Where-Object { $_ -match '(^|/)\.gitkeep$' })
+        Assert-WplTest ($placeholders.Count -eq 0) "Tracked placeholder files reappeared: $($placeholders -join ', ')"
+        # The per-folder purpose documents are real bilingual content, not
+        # placeholders, so they must survive the cleanup.
+        $toolDocs = @($tracked | Where-Object { $_ -match '^tools/\d{2}-[^/]+/README\.md$' })
+        Assert-WplTest ($toolDocs.Count -eq 9) "Expected 9 tools folder guides; found $($toolDocs.Count)."
+    }
 }

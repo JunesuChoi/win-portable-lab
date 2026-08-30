@@ -34,6 +34,11 @@ function Test-PowerShellSourceEncoding([string]$Path) {
 }
 
 $catalogPath = Join-Path $Root 'catalog\tools.json'
+# Runtime directories are not tracked in git, so validation creates them before
+# asserting on their contents. Otherwise a fresh clone fails on absent output
+# folders that the console would have created on first run anyway.
+Import-Module (Join-Path $Root 'src\WinPortableLab.Core.psm1') -Force
+[void](Initialize-WplRuntimeDirectory -Root $Root)
 try {
     $catalog = Get-Content -LiteralPath $catalogPath -Raw | ConvertFrom-Json
 }

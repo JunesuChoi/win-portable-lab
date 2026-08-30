@@ -63,6 +63,11 @@ $script:WplToolFileIndex = $null
 $script:WplManifestIdIndex = $null
 $script:WplUserToolPaths = $null
 
+# Output directories are not tracked in git, so the console creates them on the
+# first run from a fresh clone before anything tries to write a report or log.
+Import-Module (Join-Path $Root 'src\WinPortableLab.Core.psm1') -Force
+[void](Initialize-WplRuntimeDirectory -Root $Root)
+
 function Get-WplUserToolPathMap {
     # Cached for one analysis pass; Reset-WplToolIndex clears it so an edited
     # override file is picked up by the explicit refresh.

@@ -124,9 +124,9 @@ Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly 
 .\scripts\Test-Regression.ps1 -Root .
 ```
 
-테스트 48개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 모든 Sysinternals 런처가 모달 대화상자에 걸리지 않도록 `-accepteula`를 전달하는지, 실제 출력을 낸 도움말 실행이 실패로 기록되지 않는지입니다.
+테스트 50개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 모든 Sysinternals 런처가 모달 대화상자에 걸리지 않도록 `-accepteula`를 전달하는지, 실제 출력을 낸 도움말 실행이 실패로 기록되지 않는지입니다.
 
-48 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that every Sysinternals launcher passes `-accepteula` so it does not hang on a modal dialog, and that a help invocation printing real output is not recorded as a failure.
+50 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that every Sysinternals launcher passes `-accepteula` so it does not hang on a modal dialog, and that a help invocation printing real output is not recorded as a failure.
 
 ---
 
