@@ -70,6 +70,8 @@ Risky tools prompt for confirmation in the GUI and require `-AcknowledgeRisk` on
 
 Already own a program? Point the console at it with [your own tool paths](USER_TOOL_PATHS.md).
 
+Before working on a PC with no LAN, read [network driver backup and one-pack sources](NETWORK_DRIVERS.md). It is the one thing that must be prepared while the network still works.
+
 ## Hardware card detail
 
 Click the OS, CPU, GPU or RAM/DISK card at the top to open a detail window with the fields the summary cannot fit.

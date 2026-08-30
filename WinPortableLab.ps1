@@ -596,7 +596,7 @@ function Show-WplGui {
           <TextBlock x:Name="ManageSectionText" Foreground="{DynamicResource InkTertiary}" FontWeight="Medium" FontSize="10" Margin="2,0,0,7"/>
           <Button x:Name="RefreshButton" Style="{StaticResource NavButton}"/>
           <Expander x:Name="MoreExpander" Foreground="{DynamicResource InkSubtle}" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Padding="2,4" Margin="0,4,0,0" FontSize="12">
-            <StackPanel Margin="0,7,0,0"><Button x:Name="GithubButton" Style="{StaticResource NavButton}"/><Button x:Name="ValidateButton" Style="{StaticResource NavButton}"/></StackPanel>
+            <StackPanel Margin="0,7,0,0"><Button x:Name="NetworkDriverButton" Style="{StaticResource NavButton}"/><Button x:Name="GithubButton" Style="{StaticResource NavButton}"/><Button x:Name="ValidateButton" Style="{StaticResource NavButton}"/></StackPanel>
           </Expander>
         </StackPanel>
         </ScrollViewer>
@@ -685,7 +685,7 @@ function Show-WplGui {
 
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)
-    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
+    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','NetworkDriverButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
     $ui = @{}
     foreach ($name in $names) { $ui[$name] = $window.FindName($name) }
 
@@ -939,6 +939,28 @@ function Show-WplGui {
         catch { return $null }
     }
 
+    # Model-specific BIOS search. Vendors do not expose a stable query API, so
+    # the operator is taken to a pre-filled search rather than a guessed
+    # download URL that would rot. Returns \$null when the model is unknown.
+    function Get-WplBiosSearchUrl([string]$Vendor,[string]$Model) {
+        $needle = ([string]$Vendor).ToLowerInvariant()
+        $model = ([string]$Model).Trim()
+        if ([string]::IsNullOrWhiteSpace($model)) { return $null }
+        $encoded = [uri]::EscapeDataString($model)
+        if ($needle -match 'micro-star|msi') { return 'https://www.msi.com/search/' + $encoded }
+        if ($needle -match 'asus|asustek') { return 'https://www.asus.com/support/download-center/?keyword=' + $encoded }
+        if ($needle -match 'gigabyte') { return 'https://www.gigabyte.com/Search?kw=' + $encoded }
+        if ($needle -match 'asrock') { return 'https://www.asrock.com/support/index.asp?cat=BIOS&keyword=' + $encoded }
+        if ($needle -match 'biostar') { return 'https://www.biostar.com.tw/app/en/search.php?keyword=' + $encoded }
+        if ($needle -match 'dell|alienware') { return 'https://www.dell.com/support/search/en-us#q=' + $encoded }
+        if ($needle -match 'hewlett|hp ') { return 'https://support.hp.com/us-en/search?q=' + $encoded }
+        if ($needle -match 'lenovo') { return 'https://support.lenovo.com/us/en/search?query=' + $encoded }
+        if ($needle -match 'acer') { return 'https://www.acer.com/us-en/search#t=DownloadsTab&q=' + $encoded }
+        if ($needle -match 'samsung') { return 'https://www.samsung.com/us/search/searchMain/?listType=g&searchTerm=' + $encoded }
+        if ($needle -match 'intel') { return 'https://www.intel.com/content/www/us/en/search.html?ws=text#q=' + $encoded }
+        return $null
+    }
+
     # Vendor support pages for firmware and graphics drivers. Only official
     # first-party destinations are listed; nothing is downloaded automatically.
     function Get-WplVendorSupportUrl([string]$Kind,[string]$Vendor) {
@@ -991,6 +1013,8 @@ function Show-WplGui {
                     Url = $supportUrl
                     Vendor = $vendor
                     InstalledVersion = [string]$Bios.SMBIOSBIOSVersion
+                    SearchUrl = Get-WplBiosSearchUrl $vendor ([string]$Board.Product)
+                    Model = [string]$Board.Product
                 })
             }
         }
@@ -1182,6 +1206,33 @@ function Show-WplGui {
                 $stack.Children.Add($checkButton) | Out-Null
                 $stack.Children.Add($resultText) | Out-Null
             }
+            # BIOS has no queryable endpoint, so the operator is handed a
+            # model-filtered search plus the exact version string to compare.
+            if ($item.Kind -eq 'bios' -and $item.SearchUrl) {
+                $searchButton = New-Object Windows.Controls.Button
+                $searchButton.Content = Get-WplText -Key GuiSearchBios -Language $script:GuiLanguage
+                $searchButton.Style = $window.TryFindResource('PrimaryButton')
+                $searchButton.HorizontalAlignment = 'Left'
+                $searchButton.Margin = New-Object Windows.Thickness 0,8,0,0
+                $searchButton.Padding = New-Object Windows.Thickness 10,4,10,4
+                $searchButton.FontSize = 11
+                $searchButton.Tag = [string]$item.SearchUrl
+                $searchButton.ToolTip = [string]$item.SearchUrl
+                $searchButton.Add_Click({
+                    param($sender,$eventArgs)
+                    try { Start-Process ([string]$sender.Tag) }
+                    catch { [System.Windows.MessageBox]::Show($_.Exception.Message,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null }
+                })
+                $stack.Children.Add($searchButton) | Out-Null
+                $steps = New-Object Windows.Controls.TextBlock
+                $steps.Text = Get-WplText -Key GuiBiosManualSteps -Language $script:GuiLanguage -ArgumentList @([string]$item.Model,[string]$item.InstalledVersion)
+                $steps.TextWrapping = 'Wrap'
+                $steps.FontSize = 11
+                $steps.LineHeight = 17
+                $steps.Margin = New-Object Windows.Thickness 0,6,0,0
+                $steps.Foreground = $window.TryFindResource('InkSubtle')
+                $stack.Children.Add($steps) | Out-Null
+            }
             $card.Child = $stack
             $advicePanel.Children.Add($card) | Out-Null
         }
@@ -1192,6 +1243,360 @@ function Show-WplGui {
     function Set-GuiAnalysisControls([bool]$Enabled) {
         foreach ($button in @($ui.QuickButton,$ui.AllButton,$ui.StorageButton,$ui.MemoryButton,$ui.GpuButton,$ui.RefreshButton)) { $button.IsEnabled = $Enabled }
         $ui.AnalysisProgressBar.Visibility = if ($Enabled) { [Windows.Visibility]::Collapsed } else { [Windows.Visibility]::Visible }
+    }
+
+    # Runs the network driver helper out of process so an elevation prompt can be
+    # requested for the two actions that touch the driver store, and so console
+    # output is captured verbatim instead of being reformatted by the GUI.
+    function Invoke-GuiNetworkDriverAction([string]$Action,[string]$BackupPath,[switch]$AcknowledgeRisk) {
+        $helper = Join-Path $Root 'scripts\Set-WplNetworkDriver.ps1'
+        $logDirectory = Join-Path $Root 'logs'
+        if (-not (Test-Path -LiteralPath $logDirectory -PathType Container)) { New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null }
+        $logPath = Join-Path $logDirectory ('network-driver-{0}.log' -f $Action)
+        if (Test-Path -LiteralPath $logPath) { Remove-Item -LiteralPath $logPath -Force -ErrorAction SilentlyContinue }
+        $quote = { param($value) "'" + ([string]$value -replace "'","''") + "'" }
+        $inner = [Text.StringBuilder]::new()
+        [void]$inner.Append('[Console]::OutputEncoding=[Text.Encoding]::UTF8; & ')
+        [void]$inner.Append((& $quote $helper))
+        [void]$inner.Append(' -Root ').Append((& $quote $Root))
+        [void]$inner.Append(' -Action ').Append($Action)
+        [void]$inner.Append(' -Language ').Append($script:GuiLanguage)
+        if ($BackupPath) { [void]$inner.Append(' -BackupPath ').Append((& $quote $BackupPath)) }
+        if ($AcknowledgeRisk) { [void]$inner.Append(' -AcknowledgeRisk') }
+        [void]$inner.Append(' *>&1 | Out-File -LiteralPath ').Append((& $quote $logPath)).Append(' -Encoding utf8')
+        $start = @{
+            FilePath = 'powershell.exe'
+            ArgumentList = @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-Command',$inner.ToString())
+            WindowStyle = 'Hidden'
+            Wait = $true
+            PassThru = $true
+        }
+        # status and list only read, so they never provoke a UAC prompt.
+        if (-not $script:GuiIsAdministrator -and $Action -in @('backup','restore')) { $start.Verb = 'RunAs' }
+        $process = Start-Process @start
+        $output = if (Test-Path -LiteralPath $logPath) { Get-Content -LiteralPath $logPath -Raw -Encoding utf8 } else { '' }
+        [pscustomobject]@{ ExitCode = [int]$process.ExitCode; Output = [string]$output; LogPath = $logPath }
+    }
+
+    function Get-GuiNetworkDriverBackups {
+        $store = Join-Path $Root 'offline-packs\network-drivers'
+        if (-not (Test-Path -LiteralPath $store -PathType Container)) { return @() }
+        return @(Get-ChildItem -LiteralPath $store -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending)
+    }
+
+    # Network one-pack sources. Every entry is a landing page rather than a direct
+    # file, because these projects rotate build numbers and a pinned binary URL
+    # rots within months. Nothing is downloaded automatically.
+    function Get-WplNetworkPackSources {
+        @(
+            [pscustomobject]@{
+                Id = '3dp-net'
+                Name = '3DP Net'
+                Url = 'https://www.3dpchip.com/3dpchip/3dp/net_down_en.php'
+                NoteKey = 'GuiNetPack3dpNote'
+                DescriptionKey = 'GuiNetPack3dpDesc'
+                Bundled = $false
+            }
+            [pscustomobject]@{
+                Id = 'sdio-net'
+                Name = 'Snappy Driver Installer Origin'
+                Url = 'https://www.snappy-driver-installer.org/'
+                NoteKey = 'GuiNetPackSdioNote'
+                DescriptionKey = 'GuiNetPackSdioDesc'
+                Bundled = $true
+            }
+            [pscustomobject]@{
+                Id = 'drvceo-net'
+                Name = 'DrvCeo'
+                Url = 'https://www.sysceo.com/software-softwarei-id-245.html'
+                NoteKey = 'GuiNetPackDrvceoNote'
+                DescriptionKey = 'GuiNetPackDrvceoDesc'
+                Bundled = $false
+            }
+        )
+    }
+
+    # One card per source: what it is, what it costs to download, and the caveat
+    # that decides whether it suits the machine in front of you.
+    function Show-GuiNetworkPackSources {
+        [xml]$packXaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="700" Height="640" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        FontFamily="Segoe UI" SizeToContent="Manual">
+  <Grid Margin="18">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <TextBlock x:Name="PackTitle" Grid.Row="0" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+    <TextBlock x:Name="PackIntro" Grid.Row="1" FontSize="11" LineHeight="17" TextWrapping="Wrap" Margin="0,8,0,0"/>
+    <ScrollViewer x:Name="PackScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly" Margin="0,12,0,0">
+      <StackPanel x:Name="PackList" Margin="0,0,6,0"/>
+    </ScrollViewer>
+    <Button x:Name="PackCloseButton" Grid.Row="3" Height="30" MinWidth="110" HorizontalAlignment="Right" Margin="0,12,0,0"/>
+  </Grid>
+</Window>
+'@
+        $packWindow = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $packXaml))
+        $packWindow.Owner = $window
+        $packWindow.Background = $window.TryFindResource('Canvas')
+        $packWindow.Foreground = $window.TryFindResource('Ink')
+        $packWindow.Title = Get-WplText -Key GuiNetDriverOnePackTitle -Language $script:GuiLanguage
+        $packTitle = $packWindow.FindName('PackTitle')
+        $packTitle.Text = $packWindow.Title
+        $packTitle.Foreground = $window.TryFindResource('Ink')
+        $packIntro = $packWindow.FindName('PackIntro')
+        $packIntro.Text = Get-WplText -Key GuiNetDriverOnePackIntro -Language $script:GuiLanguage
+        $packIntro.Foreground = $window.TryFindResource('InkSubtle')
+        $packScroll = $packWindow.FindName('PackScroll')
+        $packScroll.Add_PreviewMouseWheel({param($sender,$eventArgs);Move-GuiScroll $sender $eventArgs.Delta;$eventArgs.Handled=$true})
+        $packClose = $packWindow.FindName('PackCloseButton')
+        $packClose.Content = Get-WplText -Key GuiDetailClose -Language $script:GuiLanguage
+        $packClose.Style = $window.TryFindResource('ActionButton')
+        $packClose.Add_Click({ $packWindow.Close() })
+        $packList = $packWindow.FindName('PackList')
+
+        foreach ($source in @(Get-WplNetworkPackSources)) {
+            $card = New-Object Windows.Controls.Border
+            $card.Background = $window.TryFindResource('Surface1')
+            $card.CornerRadius = New-Object Windows.CornerRadius 8
+            $card.Padding = New-Object Windows.Thickness 14
+            $card.Margin = New-Object Windows.Thickness 0,0,0,10
+            $card.BorderThickness = New-Object Windows.Thickness 2,0,0,0
+            $card.BorderBrush = $window.TryFindResource($(if ($source.Bundled) { 'Ok' } else { 'Hairline' }))
+            $stack = New-Object Windows.Controls.StackPanel
+
+            $heading = New-Object Windows.Controls.TextBlock
+            $heading.Text = if ($source.Bundled) { '{0} - {1}' -f $source.Name,(Get-WplText -Key GuiNetPackBundled -Language $script:GuiLanguage) } else { [string]$source.Name }
+            $heading.FontWeight = 'SemiBold'
+            $heading.FontSize = 13
+            $heading.TextWrapping = 'Wrap'
+            $heading.Foreground = $window.TryFindResource('Ink')
+            $stack.Children.Add($heading) | Out-Null
+
+            $note = New-Object Windows.Controls.TextBlock
+            $note.Text = Get-WplText -Key ([string]$source.NoteKey) -Language $script:GuiLanguage
+            $note.FontSize = 10
+            $note.TextWrapping = 'Wrap'
+            $note.Margin = New-Object Windows.Thickness 0,4,0,0
+            $note.Foreground = $window.TryFindResource('InkTertiary')
+            $stack.Children.Add($note) | Out-Null
+
+            $description = New-Object Windows.Controls.TextBlock
+            $description.Text = Get-WplText -Key ([string]$source.DescriptionKey) -Language $script:GuiLanguage
+            $description.FontSize = 11
+            $description.LineHeight = 17
+            $description.TextWrapping = 'Wrap'
+            $description.Margin = New-Object Windows.Thickness 0,7,0,0
+            $description.Foreground = $window.TryFindResource('InkSubtle')
+            $stack.Children.Add($description) | Out-Null
+
+            $addressText = New-Object Windows.Controls.TextBlock
+            $addressText.Text = [string]$source.Url
+            $addressText.FontFamily = New-Object Windows.Media.FontFamily 'Consolas'
+            $addressText.FontSize = 10
+            $addressText.TextWrapping = 'Wrap'
+            $addressText.Margin = New-Object Windows.Thickness 0,7,0,0
+            $addressText.Foreground = $window.TryFindResource('InkTertiary')
+            $stack.Children.Add($addressText) | Out-Null
+
+            $buttonRow = New-Object Windows.Controls.StackPanel
+            $buttonRow.Orientation = 'Horizontal'
+            $buttonRow.Margin = New-Object Windows.Thickness 0,9,0,0
+            $openButton = New-Object Windows.Controls.Button
+            $openButton.Content = Get-WplText -Key GuiNetDriverOnePackOpen -Language $script:GuiLanguage
+            $openButton.Style = $window.TryFindResource('PrimaryButton')
+            $openButton.Padding = New-Object Windows.Thickness 12,5,12,5
+            $openButton.FontSize = 11
+            $openButton.Tag = [string]$source.Url
+            $openButton.ToolTip = [string]$source.Url
+            $openButton.Add_Click({
+                param($sender,$eventArgs)
+                try { Start-Process ([string]$sender.Tag) }
+                catch { [System.Windows.MessageBox]::Show($_.Exception.Message,$packWindow.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null }
+            })
+            $buttonRow.Children.Add($openButton) | Out-Null
+            $copyButton = New-Object Windows.Controls.Button
+            $copyButton.Content = Get-WplText -Key GuiNetDriverOnePackCopy -Language $script:GuiLanguage
+            $copyButton.Style = $window.TryFindResource('ActionButton')
+            $copyButton.Padding = New-Object Windows.Thickness 12,5,12,5
+            $copyButton.FontSize = 11
+            $copyButton.Margin = New-Object Windows.Thickness 8,0,0,0
+            $copyButton.Tag = [string]$source.Url
+            $copyButton.Add_Click({
+                param($sender,$eventArgs)
+                try {
+                    [Windows.Clipboard]::SetText([string]$sender.Tag)
+                    $ui.StatusText.Text = Get-WplText -Key GuiNetDriverOnePackCopied -Language $script:GuiLanguage -ArgumentList @([string]$sender.Tag)
+                }
+                catch { [System.Windows.MessageBox]::Show($_.Exception.Message,$packWindow.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null }
+            })
+            $buttonRow.Children.Add($copyButton) | Out-Null
+            $stack.Children.Add($buttonRow) | Out-Null
+
+            $card.Child = $stack
+            $packList.Children.Add($card) | Out-Null
+        }
+
+        [void]$packWindow.ShowDialog()
+    }
+
+    # Network drivers are the one class of driver whose absence blocks fetching
+    # every other driver, so they get a dedicated surface rather than living
+    # inside the generic recommendation list.
+    function Show-GuiNetworkDriver {
+        [xml]$netXaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="660" Height="620" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        FontFamily="Segoe UI" SizeToContent="Manual">
+  <Grid Margin="18">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <TextBlock x:Name="NetTitle" Grid.Row="0" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+    <TextBlock x:Name="NetIntro" Grid.Row="1" FontSize="11" LineHeight="17" TextWrapping="Wrap" Margin="0,8,0,0"/>
+    <WrapPanel x:Name="NetActions" Grid.Row="2" Margin="0,12,0,0"/>
+    <Grid Grid.Row="3" Margin="0,2,0,0">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock x:Name="NetBackupLabel" Grid.Column="0" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+      <ComboBox x:Name="NetBackupCombo" Grid.Column="1" Height="26" FontSize="11" VerticalContentAlignment="Center"/>
+      <Button x:Name="NetRestoreButton" Grid.Column="2" Height="26" MinWidth="140" Margin="8,0,0,0" FontSize="11"/>
+    </Grid>
+    <Border x:Name="NetOutputSurface" Grid.Row="4" CornerRadius="8" Padding="12" Margin="0,12,0,0">
+      <ScrollViewer x:Name="NetOutputScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+        <TextBlock x:Name="NetOutputBody" TextWrapping="NoWrap" FontFamily="Consolas" FontSize="11" LineHeight="17"/>
+      </ScrollViewer>
+    </Border>
+    <Button x:Name="NetCloseButton" Grid.Row="5" Height="30" MinWidth="110" HorizontalAlignment="Right" Margin="0,12,0,0"/>
+  </Grid>
+</Window>
+'@
+        $netWindow = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $netXaml))
+        $netWindow.Owner = $window
+        $netWindow.Background = $window.TryFindResource('Canvas')
+        $netWindow.Foreground = $window.TryFindResource('Ink')
+        $netWindow.Title = Get-WplText -Key GuiNetDriverTitle -Language $script:GuiLanguage
+        $netTitle = $netWindow.FindName('NetTitle')
+        $netTitle.Text = $netWindow.Title
+        $netTitle.Foreground = $window.TryFindResource('Ink')
+        $netIntro = $netWindow.FindName('NetIntro')
+        $netIntro.Text = Get-WplText -Key GuiNetDriverIntro -Language $script:GuiLanguage
+        $netIntro.Foreground = $window.TryFindResource('InkSubtle')
+        $netWindow.FindName('NetOutputSurface').Background = $window.TryFindResource('Surface1')
+        $netBody = $netWindow.FindName('NetOutputBody')
+        $netBody.Foreground = $window.TryFindResource('InkMuted')
+        $netScroll = $netWindow.FindName('NetOutputScroll')
+        $netScroll.Add_PreviewMouseWheel({param($sender,$eventArgs);Move-GuiScroll $sender $eventArgs.Delta;$eventArgs.Handled=$true})
+        $netClose = $netWindow.FindName('NetCloseButton')
+        $netClose.Content = Get-WplText -Key GuiDetailClose -Language $script:GuiLanguage
+        $netClose.Style = $window.TryFindResource('ActionButton')
+        $netClose.Add_Click({ $netWindow.Close() })
+        $netBackupLabel = $netWindow.FindName('NetBackupLabel')
+        $netBackupLabel.Text = Get-WplText -Key GuiNetDriverBackupLabel -Language $script:GuiLanguage
+        $netBackupLabel.Foreground = $window.TryFindResource('InkTertiary')
+        $netCombo = $netWindow.FindName('NetBackupCombo')
+        $netActions = $netWindow.FindName('NetActions')
+
+        $refreshBackups = {
+            $previous = [string]$netCombo.SelectedItem
+            $netCombo.Items.Clear()
+            foreach ($directory in @(Get-GuiNetworkDriverBackups)) { [void]$netCombo.Items.Add($directory.Name) }
+            if ($netCombo.Items.Count -gt 0) {
+                $netCombo.SelectedIndex = if ($previous -and $netCombo.Items.Contains($previous)) { $netCombo.Items.IndexOf($previous) } else { 0 }
+            }
+        }
+        $runAction = {
+            param([string]$ActionName,[string]$SelectedBackupPath,[bool]$RiskAccepted)
+            $netBody.Foreground = $window.TryFindResource('InkSubtle')
+            $netBody.Text = Get-WplText -Key GuiNetDriverRunning -Language $script:GuiLanguage -ArgumentList @($ActionName)
+            $netWindow.Dispatcher.Invoke([action]{},'Render')
+            try {
+                $result = Invoke-GuiNetworkDriverAction -Action $ActionName -BackupPath $SelectedBackupPath -AcknowledgeRisk:$RiskAccepted
+                $netBody.Foreground = $window.TryFindResource($(if ($result.ExitCode -eq 0) { 'InkMuted' } else { 'Caution' }))
+                $netBody.Text = if ([string]::IsNullOrWhiteSpace([string]$result.Output)) { [string]$result.LogPath } else { ([string]$result.Output).TrimEnd() }
+                $netScroll.ScrollToTop()
+            }
+            catch {
+                $netBody.Foreground = $window.TryFindResource('Caution')
+                $netBody.Text = Get-WplText -Key GuiNetDriverActionFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+            }
+            & $refreshBackups
+        }
+        $addAction = {
+            param([string]$TextKey,[scriptblock]$Handler,[bool]$Primary)
+            $actionButton = New-Object Windows.Controls.Button
+            $actionButton.Content = Get-WplText -Key $TextKey -Language $script:GuiLanguage
+            $actionButton.Style = $window.TryFindResource($(if ($Primary) { 'PrimaryButton' } else { 'ActionButton' }))
+            $actionButton.Margin = New-Object Windows.Thickness 0,0,8,8
+            $actionButton.Padding = New-Object Windows.Thickness 12,5,12,5
+            $actionButton.FontSize = 11
+            $actionButton.Add_Click($Handler)
+            $netActions.Children.Add($actionButton) | Out-Null
+        }
+
+        & $addAction 'GuiNetDriverStatusAction' { & $runAction 'status' '' $false } $false
+        & $addAction 'GuiNetDriverBackupAction' {
+            $answer = [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNetDriverBackupConfirm -Language $script:GuiLanguage),$netWindow.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Information)
+            if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
+            & $runAction 'backup' '' $false
+        } $true
+        & $addAction 'GuiNetDriverListAction' { & $runAction 'list' '' $false } $false
+        & $addAction 'GuiNetDriverOnePackAction' {
+            try { Show-GuiNetworkPackSources }
+            catch {
+                $netBody.Foreground = $window.TryFindResource('Caution')
+                $netBody.Text = Get-WplText -Key GuiNetDriverActionFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+            }
+        } $false
+        & $addAction 'GuiNetDriverSdioAction' {
+            $sdioRows = @()
+            if ($script:GuiPlan) { $sdioRows = @($script:GuiPlan.programs | Where-Object { [string]$_.catalogId -eq 'sdio' }) }
+            if (-not $sdioRows.Count -or -not $sdioRows[0].launchable) {
+                [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNetDriverSdioMissing -Language $script:GuiLanguage),$netWindow.Title) | Out-Null
+                return
+            }
+            $confirm = Get-WplText -Key GuiRiskConfirm -Language $script:GuiLanguage -ArgumentList @([string]$sdioRows[0].riskText)
+            $answer = [System.Windows.MessageBox]::Show($confirm,$netWindow.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Warning)
+            if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
+            try {
+                [void](Open-ToolIds -Ids @([string]$sdioRows[0].id) -RiskAccepted -UseLanguage $script:GuiLanguage)
+                $netBody.Foreground = $window.TryFindResource('InkMuted')
+                $netBody.Text = Get-WplText -Key GuiLaunchStarted -Language $script:GuiLanguage -ArgumentList @([string]$sdioRows[0].id)
+            }
+            catch {
+                $netBody.Foreground = $window.TryFindResource('Caution')
+                $netBody.Text = Get-WplText -Key GuiNetDriverActionFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+            }
+        } $false
+        & $addAction 'GuiNetDriverGuideAction' {
+            try { Open-WplTextDocument (Join-Path $Root ('docs\{0}\NETWORK_DRIVERS.md' -f $script:GuiLanguage)) }
+            catch {
+                $netBody.Foreground = $window.TryFindResource('Caution')
+                $netBody.Text = Get-WplText -Key GuiNetDriverActionFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+            }
+        } $false
+
+        $netRestore = $netWindow.FindName('NetRestoreButton')
+        $netRestore.Content = Get-WplText -Key GuiNetDriverRestoreAction -Language $script:GuiLanguage
+        $netRestore.Style = $window.TryFindResource('ActionButton')
+        $netRestore.Add_Click({
+            $selectedBackup = [string]$netCombo.SelectedItem
+            if ([string]::IsNullOrWhiteSpace($selectedBackup)) {
+                [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNetDriverNoBackupSelected -Language $script:GuiLanguage),$netWindow.Title) | Out-Null
+                return
+            }
+            $message = Get-WplText -Key GuiNetDriverRestoreConfirm -Language $script:GuiLanguage -ArgumentList @($selectedBackup)
+            $answer = [System.Windows.MessageBox]::Show($message,$netWindow.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Warning)
+            if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
+            & $runAction 'restore' (Join-Path (Join-Path $Root 'offline-packs\network-drivers') $selectedBackup) $true
+        })
+
+        & $refreshBackups
+        # The first status pass runs after the window is up. Calling it inline
+        # blocked on a hidden child process before ShowDialog, so the dialog only
+        # appeared once the probe finished.
+        $netWindow.Add_ContentRendered({ & $runAction 'status' '' $false })
+        [void]$netWindow.ShowDialog()
     }
 
     # Status colours resolve from the window's colour tokens so the palette stays
@@ -1223,6 +1628,7 @@ function Show-WplGui {
         $ui.SafeLaunchButton.Content = Get-WplText -Key GuiSafeLaunch -Language $code
         $ui.ReportsButton.Content = Get-WplText -Key GuiReports -Language $code
         $ui.LatestResultButton.Content = Get-WplText -Key GuiLatestResult -Language $code
+        $ui.NetworkDriverButton.Content = Get-WplText -Key GuiNetworkDriver -Language $code
         $ui.GithubButton.Content = Get-WplText -Key GuiGithub -Language $code
         $ui.ValidateButton.Content = Get-WplText -Key GuiValidate -Language $code
         $ui.GuideButton.Content = Get-WplText -Key GuiOpenGuide -Language $code
@@ -1706,6 +2112,13 @@ function Show-WplGui {
         $arguments = @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $Root 'WinPortableLab.ps1'),'-Action','validate','-Language',$script:GuiLanguage)
         Start-Process powershell.exe -ArgumentList $arguments
         $ui.StatusText.Text = Get-WplText -Key GuiValidationStarted -Language $script:GuiLanguage
+    })
+    $ui.NetworkDriverButton.Add_Click({
+        try { Show-GuiNetworkDriver }
+        catch {
+            Set-GuiStatusTone 'fail'
+            $ui.StatusText.Text = Get-WplText -Key GuiNetDriverActionFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+        }
     })
     $window.Add_Loaded({
         if ($script:GuiInitialAnalysisStarted) { return }

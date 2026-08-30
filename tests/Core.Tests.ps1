@@ -417,3 +417,99 @@ Describe 'KO and EN localization contract' {
         Assert-WplTest ($missing.Count -eq 0) "Undefined localization keys: $($missing -join ', ')"
     }
 }
+
+Describe 'Network driver recovery contract' {
+    It 'gates driver-store writes behind an explicit acknowledgement and elevation' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'scripts\Set-WplNetworkDriver.ps1') -Raw
+        $restoreBlock = [regex]::Match($source,"(?s)'restore'\s*\{.*")
+        Assert-WplTest ($restoreBlock.Success) 'The restore action block could not be located.'
+        Assert-WplTest ($restoreBlock.Value -match 'if \(-not \$AcknowledgeRisk\) \{ throw') 'Restore does not refuse to run without -AcknowledgeRisk.'
+        Assert-WplTest ($restoreBlock.Value -match 'Test-WplAdministrator') 'Restore does not require administrator rights.'
+        $backupBlock = [regex]::Match($source,"(?s)'backup'\s*\{.*?(?='list'\s*\{)")
+        Assert-WplTest ($backupBlock.Success) 'The backup action block could not be located.'
+        Assert-WplTest ($backupBlock.Value -match 'Test-WplAdministrator') 'Backup does not require administrator rights.'
+        Assert-WplTest ($source -notmatch "pnputil.exe /add-driver .*\n.*'backup'") 'Backup must not install drivers.'
+    }
+
+    It 'counts only bus-attached adapters so VPN tunnels are not mistaken for hardware' {
+        # Win32_NetworkAdapter marks TAP/TUN drivers as PhysicalAdapter, which
+        # previously produced ten adapters on a machine that has two real NICs.
+        $source = Get-Content -LiteralPath (Join-Path $root 'scripts\Set-WplNetworkDriver.ps1') -Raw
+        Assert-WplTest ($source -match "PNPDeviceID -match '\^\(PCI\|USB\|PCMCIA\)") 'The adapter filter no longer restricts to physical buses.'
+    }
+
+    It 'keeps exported driver backups out of version control' {
+        $ignore = Get-Content -LiteralPath (Join-Path $root '.gitignore') -Raw
+        Assert-WplTest ($ignore -match '(?m)^offline-packs/') 'offline-packs is not ignored, so driver exports could be committed.'
+    }
+
+    It 'requests elevation only for the two write-capable actions' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($source -match "Action -in @\('backup','restore'\)") 'The GUI no longer scopes the elevation request to backup and restore.'
+        Assert-WplTest ($source -match 'x:Name="NetworkDriverButton"') 'The network driver entry point is missing from the sidebar.'
+        Assert-WplTest ($source -match 'x:Name="NetBackupCombo"') 'The backup selector is missing from the network driver window.'
+    }
+
+    It 'documents the offline workflow in both languages' {
+        foreach ($code in @('ko','en')) {
+            $path = Join-Path $root ('docs\{0}\NETWORK_DRIVERS.md' -f $code)
+            Assert-WplTest (Test-Path -LiteralPath $path -PathType Leaf) "Missing network driver guide: $code"
+            $text = Get-Content -LiteralPath $path -Raw
+            Assert-WplTest ($text -match 'pnputil') "$code guide does not state the restore mechanism."
+            Assert-WplTest ($text -match 'SDIO') "$code guide does not cover the SDIO offline pack workflow."
+        }
+    }
+
+    It 'points the BIOS check at a model-filtered vendor search rather than a guessed download link' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        $function = [regex]::Match($source,'(?s)function Get-WplBiosSearchUrl.*?\n    \}')
+        Assert-WplTest ($function.Success) 'Get-WplBiosSearchUrl could not be located.'
+        Assert-WplTest ($function.Value -match 'EscapeDataString') 'The model is not URL-encoded before being placed in a query.'
+        Assert-WplTest ($function.Value -notmatch '\.(zip|exe|cab)') 'A direct firmware file link was introduced; only search pages are allowed.'
+        foreach ($vendor in @('msi','asus','gigabyte','asrock','lenovo','dell')) {
+            Assert-WplTest ($function.Value -match $vendor) "No BIOS search destination for $vendor."
+        }
+        Assert-WplTest ($source -match 'GuiBiosManualSteps') 'The manual BIOS comparison steps are not shown.'
+    }
+
+    It 'offers a network one-pack route for every source it names' {
+        # A pinned binary URL rots within months, so each entry must be a landing
+        # page. A direct .exe here would silently break in the field.
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        $function = [regex]::Match($source,'(?s)function Get-WplNetworkPackSources.*?\n    \}')
+        Assert-WplTest ($function.Success) 'Get-WplNetworkPackSources could not be located.'
+        $urls = @([regex]::Matches($function.Value,"Url = '([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+        Assert-WplTest ($urls.Count -ge 3) "Expected at least three one-pack sources; found $($urls.Count)."
+        foreach ($url in $urls) {
+            Assert-WplTest ($url -match '^https://') "One-pack source is not HTTPS: $url"
+            Assert-WplTest ($url -notmatch '\.(exe|7z|zip)$') "One-pack source pins a binary that will rot: $url"
+        }
+        foreach ($key in @('GuiNetPack3dpDesc','GuiNetPackSdioDesc','GuiNetPackDrvceoDesc')) {
+            Assert-WplTest ($source -match $key) "Missing description binding: $key"
+        }
+        Assert-WplTest ($source -match 'GuiNetDriverOnePackAction') 'The one-pack action is not wired into the network driver window.'
+    }
+
+    It 'runs the first status probe after the window is rendered' {
+        # Calling the probe inline blocked on a hidden child process before
+        # ShowDialog, so the dialog stayed invisible until the probe finished.
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        $function = [regex]::Match($source,'(?s)function Show-GuiNetworkDriver.*?\[void\]\$netWindow\.ShowDialog\(\)')
+        Assert-WplTest ($function.Success) 'Show-GuiNetworkDriver could not be located.'
+        Assert-WplTest ($function.Value -match 'Add_ContentRendered') 'The initial status probe is not deferred to ContentRendered.'
+        $inline = [regex]::Match($function.Value,"(?m)^\s*& \`$runAction 'status' '' \`$false\s*$")
+        Assert-WplTest (-not $inline.Success) 'A blocking inline status probe was reintroduced before ShowDialog.'
+    }
+
+    It 'documents every one-pack source in both languages' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        $function = [regex]::Match($source,'(?s)function Get-WplNetworkPackSources.*?\n    \}')
+        $urls = @([regex]::Matches($function.Value,"Url = '([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+        foreach ($code in @('ko','en')) {
+            $text = Get-Content -LiteralPath (Join-Path $root ('docs\{0}\NETWORK_DRIVERS.md' -f $code)) -Raw
+            foreach ($url in $urls) {
+                Assert-WplTest ($text -match [regex]::Escape($url)) "$code guide does not document the source $url"
+            }
+        }
+    }
+}

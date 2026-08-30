@@ -148,6 +148,8 @@ function Get-WplText {
         AdviceBiosAge=@{ko='설치된 BIOS {0} (출시 {1})은 약 {2}개월 전 버전입니다. 제조사 페이지에서 더 새 버전이 있는지 확인하세요. 이 도구는 최신 버전 목록을 조회하지 않습니다.';en='The installed BIOS {0} (released {1}) is about {2} months old. Check the vendor page for a newer release. This tool does not query vendor catalogues.'}
         AdviceGpuDriverAge=@{ko='드라이버 {0} (출시 {1})은 약 {2}개월 전 버전입니다. 제조사 페이지에서 더 새 버전이 있는지 확인하세요. 이 도구는 최신 버전 목록을 조회하지 않습니다.';en='Driver {0} (released {1}) is about {2} months old. Check the vendor page for a newer release. This tool does not query vendor catalogues.'}
         GuiCheckLatestDriver=@{ko='최신 버전 온라인 확인';en='Check latest version online'}
+        GuiSearchBios=@{ko='내 모델 BIOS 검색 열기';en='Search BIOS for this model'}
+        GuiBiosManualSteps=@{ko='확인 순서: 검색 결과에서 {0} 제품 페이지를 열고 BIOS 또는 지원 탭으로 이동한 뒤, 최신 버전 번호를 현재 설치본 {1}과 비교하세요. 같으면 최신입니다.';en='How to check: open the {0} product page from the search results, go to its BIOS or support tab, then compare the newest version number with the installed {1}. If they match, it is current.'}
         GuiCheckingLatest=@{ko='제조사 서버에서 최신 버전을 확인하는 중입니다...';en='Checking the vendor server for the latest version...'}
         GuiCheckLatestFailed=@{ko='온라인 확인 실패({0}). 네트워크가 없거나 제조사 응답이 바뀌었을 수 있습니다. 제조사 페이지에서 직접 확인하세요.';en='Online check failed ({0}). There may be no network, or the vendor response changed. Confirm on the vendor page instead.'}
         GuiLatestAvailable=@{ko='최신 버전 {0} (출시 {1})이 있습니다. 설치본보다 새 버전입니다.';en='Version {0} (released {1}) is available and is newer than what is installed.'}
@@ -164,6 +166,51 @@ function Get-WplText {
         UserPathNoEntry=@{ko='{0}에 등록된 사용자 경로가 없습니다.';en='No user-declared path is registered for {0}.'}
         UserPathRemoved=@{ko='{0} 사용자 경로를 제거했습니다. 번들 도구 검색으로 되돌아갑니다.';en='Removed the user-declared path for {0}. Falling back to the bundled tools tree.'}
         UserPathVerified=@{ko='사용자 경로 검증 통과. 항목: {0}';en='User-declared path validation passed. Entries: {0}'}
+        NetDriverAdapters=@{ko='물리 네트워크 어댑터 {0}개를 확인했습니다.';en='Detected {0} physical network adapter(s).'}
+        NetDriverSdioState=@{ko='SDIO 상태: 설치={0}, 인덱스 {1}개, 드라이버 팩 {2}개';en='SDIO state: installed={0}, indexes={1}, driver packs={2}'}
+        NetDriverPacksMissing=@{ko='SDIO 인덱스만 있고 실제 드라이버 팩이 없습니다. 오프라인 설치를 하려면 인터넷이 되는 PC에서 SDIO를 실행해 네트워크 팩을 받은 뒤 {0} 폴더를 그대로 복사하십시오.';en='SDIO has indexes but no driver archives. For an offline install, run SDIO on a PC that still has internet, download the network packs, then copy the {0} folder as-is.'}
+        NetDriverBackupCount=@{ko='보관된 드라이버 백업 {0}개. 위치: {1}';en='{0} driver backup(s) stored in {1}.'}
+        NetDriverOfflineReady=@{ko='오프라인 네트워크 드라이버 복구 자료가 준비되어 있습니다.';en='Offline network driver recovery material is available.'}
+        NetDriverOfflineNotReady=@{ko='오프라인 복구 자료가 없습니다. 네트워크가 살아 있는 동안 backup 동작을 먼저 실행하거나 SDIO 팩을 준비하십시오.';en='No offline recovery material yet. Run the backup action while the network still works, or prepare SDIO packs.'}
+        NetDriverNoAdapters=@{ko='물리 네트워크 어댑터를 찾지 못했습니다. 백업할 대상이 없습니다.';en='No physical network adapter was found, so there is nothing to back up.'}
+        NetDriverBackupDone=@{ko='네트워크 드라이버 {0}/{1}개를 내보냈습니다. 위치: {2}';en='Exported {0} of {1} network drivers to {2}.'}
+        NetDriverNoBackups=@{ko='{0}에 저장된 드라이버 백업이 없습니다.';en='No driver backup is stored in {0}.'}
+        NetDriverRestoreNeedsRisk=@{ko='드라이버 복원은 시스템을 변경합니다. 안내서를 읽은 뒤 -AcknowledgeRisk와 함께 다시 실행하십시오.';en='Restoring a driver changes the system. Re-run with -AcknowledgeRisk after reading the guide.'}
+        NetDriverRestoreNeedsPath=@{ko='복원할 백업 폴더 경로가 필요합니다. -BackupPath 값을 지정하십시오.';en='The backup folder to restore is required. Provide -BackupPath.'}
+        NetDriverRestoreBadPath=@{ko='백업 폴더를 찾을 수 없습니다: {0}';en='Backup folder not found: {0}'}
+        NetDriverRestoreNoInf=@{ko='{0}에서 설치할 INF 파일을 찾지 못했습니다.';en='No INF file to install was found in {0}.'}
+        NetDriverRestoreDone=@{ko='INF {0}/{1}개를 드라이버 저장소에 추가했습니다. 안내가 나오면 재부팅하십시오.';en='Added {0} of {1} INF packages to the driver store. Reboot if Windows asks for it.'}
+        NetDriverNeedsAdmin=@{ko='드라이버 내보내기와 설치에는 관리자 권한이 필요합니다. 관리자 권한으로 다시 실행하십시오.';en='Exporting and installing drivers requires administrator rights. Re-run elevated.'}
+        NetDriverPauseHint=@{ko='창을 닫으려면 Enter 키를 누르십시오.';en='Press Enter to close this window.'}
+        GuiNetworkDriver=@{ko='네트워크 드라이버';en='Network drivers'}
+        GuiNetDriverTitle=@{ko='네트워크 드라이버 백업과 오프라인 설치';en='Network driver backup and offline install'}
+        GuiNetDriverIntro=@{ko='랜과 무선 드라이버가 없으면 인터넷 자체가 안 되므로 다른 드라이버보다 먼저 확보해야 합니다. 네트워크가 살아 있는 지금 백업해 두면, 재설치한 PC에서 이 USB만으로 랜을 살릴 수 있습니다.';en='Without a LAN or Wi-Fi driver there is no internet at all, so it must be secured before every other driver. Back it up while the network still works and this USB alone can restore connectivity on a freshly installed PC.'}
+        GuiNetDriverStatusAction=@{ko='상태 확인';en='Check status'}
+        GuiNetDriverBackupAction=@{ko='지금 백업';en='Back up now'}
+        GuiNetDriverListAction=@{ko='백업 목록';en='List backups'}
+        GuiNetDriverRestoreAction=@{ko='선택 백업 설치';en='Install selected backup'}
+        GuiNetDriverSdioAction=@{ko='SDIO 오프라인 설치';en='SDIO offline install'}
+        GuiNetDriverGuideAction=@{ko='안내서 열기';en='Open guide'}
+        GuiNetDriverBackupLabel=@{ko='설치에 사용할 백업';en='Backup to install'}
+        GuiNetDriverRunning=@{ko='{0} 작업을 실행하고 있습니다...';en='Running the {0} action...'}
+        GuiNetDriverNoBackupSelected=@{ko='설치할 백업을 먼저 선택하십시오. 목록이 비어 있으면 이 PC나 같은 모델 PC에서 백업을 먼저 만드십시오.';en='Select a backup to install first. If the list is empty, create a backup on this PC or on the same model first.'}
+        GuiNetDriverRestoreConfirm=@{ko="'{0}' 백업의 네트워크 드라이버를 이 PC에 설치합니다. 드라이버 저장소가 변경되고 재부팅이 필요할 수 있습니다. 계속하시겠습니까?";en="This installs the network drivers from '{0}' on this PC. The driver store changes and a reboot may be required. Continue?"}
+        GuiNetDriverActionFailed=@{ko='네트워크 드라이버 작업 실패: {0}';en='Network driver action failed: {0}'}
+        GuiNetDriverBackupConfirm=@{ko='현재 PC의 네트워크 드라이버를 USB로 내보냅니다. 시스템 설정은 바꾸지 않습니다. 계속하시겠습니까?';en='This exports the current network drivers to the USB. No system setting is changed. Continue?'}
+       GuiNetDriverSdioMissing=@{ko='SDIO 실행 파일을 찾지 못했습니다. 도구 목록에서 SDIO 준비 상태를 확인하십시오.';en='The SDIO executable was not found. Check the SDIO readiness in the tool list.'}
+        GuiNetDriverOnePackAction=@{ko='원팩 받기 경로';en='Get a network one-pack'}
+        GuiNetDriverOnePackTitle=@{ko='네트워크 드라이버 원팩 받는 경로';en='Where to get a network driver one-pack'}
+        GuiNetDriverOnePackIntro=@{ko='랜이 죽은 PC를 살리려면 랜 드라이버가 미리 담긴 통합팩이 필요합니다. 아래는 실제로 널리 쓰이는 세 갈래입니다. 이 프로젝트는 용량과 배포 조건 때문에 팩 자체를 포함하지 않고, 인터넷이 되는 지금 직접 받아 USB에 두도록 경로만 안내합니다.';en='Reviving a PC with no LAN needs a pack that already contains the network driver. These are the three routes people actually use. This project does not bundle the packs themselves because of their size and distribution terms; it points you at the source so you can fetch one now, while you still have internet, and keep it on the USB.'}
+        GuiNetDriverOnePackOpen=@{ko='다운로드 페이지 열기';en='Open download page'}
+        GuiNetDriverOnePackCopy=@{ko='주소 복사';en='Copy address'}
+        GuiNetDriverOnePackCopied=@{ko='주소를 클립보드에 복사했습니다: {0}';en='Address copied to the clipboard: {0}'}
+        GuiNetPackBundled=@{ko='이 USB에 본체 포함됨';en='Program bundled on this USB'}
+        GuiNetPack3dpNote=@{ko='용량 약 100MB · 한국어 공식 배포 · 자동 압축 해제형';en='About 100 MB, official Korean distribution, self-extracting'}
+        GuiNetPack3dpDesc=@{ko='랜카드 모델을 자동으로 감지해 오프라인에서 유선·무선 드라이버를 설치합니다. 셋 중 가장 가볍고 한국어 안내가 있어, 랜만 살리는 목적이면 첫 선택으로 적당합니다. 랜이 붙은 뒤 나머지 드라이버는 3DP Chip이나 SDIO로 이어서 처리하십시오. 변조본을 피하려면 공식 페이지에서만 받으십시오.';en='Detects the network card model and installs the wired or wireless driver offline. It is the lightest of the three and ships Korean guidance, which makes it a sensible first choice when the only goal is getting LAN back. Once the link is up, continue with 3DP Chip or SDIO for the remaining drivers. Download only from the official page to avoid repackaged builds.'}
+        GuiNetPackSdioNote=@{ko='네트워크 팩만 고르면 수 GB · 본체는 이미 이 USB에 있음';en='A few GB if you select only the network packs; the program already ships on this USB'}
+        GuiNetPackSdioDesc=@{ko='이 프로젝트에 포함된 SDIO 본체에 팩만 추가로 받는 방식입니다. 첫 실행 안내에서 네트워크 드라이버만 받기를 고르거나, 상단 업데이트 목록에서 _LAN_ 과 _WLAN-WiFi_ 항목만 체크하십시오. 전체 팩은 60GB를 넘지만 네트워크 계열만 고르면 수 GB로 끝납니다. 받은 팩은 drivers 폴더에 그대로 두십시오.';en='Add just the packs to the SDIO program this project already bundles. Pick the network-drivers-only option on the first-run prompt, or tick only the _LAN_ and _WLAN-WiFi_ entries in the update list. The full collection exceeds 60 GB, but the network families alone finish in a few GB. Leave the downloaded packs in the drivers folder.'}
+        GuiNetPackDrvceoNote=@{ko='랜카드 버전 수백 MB · 중국어 화면 · 백신 오탐 사례 있음';en='Network-card edition is a few hundred MB, Chinese interface, antivirus false positives reported'}
+        GuiNetPackDrvceoDesc=@{ko='중국 SysCeo가 배포하는 통합 드라이버 도구로, 만능 랜카드 버전과 무설치 판을 따로 제공합니다. 랜카드 외에 USB와 저장장치 컨트롤러까지 담아, 랜 자체가 잡히지 않는 까다로운 기종에서 마지막 수단으로 쓸 만합니다. 다만 화면이 중국어이고 드라이버 주입 방식 때문에 백신이 악성으로 오탐하는 사례가 보고됩니다. 셋 중 가장 신중하게 판단할 항목입니다.';en="SysCeo's all-in-one driver tool, distributed as a universal network-card edition plus a separate no-install build. It also carries USB and storage controller drivers, which makes it a reasonable last resort on awkward machines where the NIC is not detected at all. The interface is Chinese, and its driver-injection approach is reported to trigger antivirus false positives, so treat it as the entry needing the most judgement."}
         GuiNoToolGuide=@{ko='{0}의 상세 사용법 문서가 아직 없습니다. 빠른 사용 안내를 엽니다.';en='No detailed guide exists for {0} yet. Opening the quick reference instead.'}
         GuiLaunching=@{ko='{0} 실행을 준비하고 있습니다...';en='Preparing to launch {0}...'}
         GuiLaunchPreview=@{ko='실행 전 미리보기';en='Launch preview'}

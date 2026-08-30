@@ -170,6 +170,7 @@ Installing or debloating Windows. Auto-tuning anything. Bundling proprietary bin
 | 권장 설정 / Recommended settings | [SETTING_GUIDE](docs/ko/SETTING_GUIDE.md) | [SETTING_GUIDE](docs/en/SETTING_GUIDE.md) |
 | SSD 더티 테스트 / SSD dirty test | [SSD_DIRTY_TEST](docs/ko/SSD_DIRTY_TEST.md) | [SSD_DIRTY_TEST](docs/en/SSD_DIRTY_TEST.md) |
 | 내 프로그램 경로 등록 / Your own tool paths | [USER_TOOL_PATHS](docs/ko/USER_TOOL_PATHS.md) | [USER_TOOL_PATHS](docs/en/USER_TOOL_PATHS.md) |
+| 네트워크 드라이버 백업·원팩 / Network driver backup and one-packs | [NETWORK_DRIVERS](docs/ko/NETWORK_DRIVERS.md) | [NETWORK_DRIVERS](docs/en/NETWORK_DRIVERS.md) |
 
 그 외 · Also: [Architecture](docs/ARCHITECTURE.md), [Tool catalog](docs/tooling/TOOL_CATALOG.md), [Setup guides](docs/tooling/SETUP_GUIDES.md), 플랫폼 가이드 [Intel](docs/guides/CPU_INTEL.md) / [AMD](docs/guides/CPU_AMD.md) / [GPU](docs/guides/GPU_DDU.md) / [RAM](docs/guides/RAM_OVERCLOCK.md)
 
