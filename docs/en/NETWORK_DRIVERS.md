@@ -102,6 +102,16 @@ SysCeo's all-in-one driver tool. It is distributed as a universal network-card e
 
 The interface is Chinese, and its driver-injection approach is reported to trigger antivirus false positives. Treat it as the entry needing the most judgement; if either of the first two tools solves the problem, there is no reason to reach for this one.
 
+**Community reputation is split.** Chinese repair and system-deployment technicians treat it as a legitimate utility and rate it as less bloated and more trustworthy than the older generation of tools such as Driver Genius or Driver Life. Reddit and security communities, by contrast, advise against automatic driver installers as a class and file them under PUP (potentially unwanted program) risk. DriverPack Solution, a tool in the same category, has reports of breaking drivers and installing adware.
+
+The antivirus flags have a technical basis: a self-protection kernel mini-filter driver, a UPX runtime packer, and automated driver-injection scripting.
+
+**The real hazard is the mirror, not the tool.** DrvCeo circulates widely inside third-party Windows PE images, Ghost images, and file-sharing boards, and tampered executables carrying real malware, coin miners, and browser hijackers have been observed in unofficial copies. Download only from the official sysceo.com page above.
+
+After installing, review your browser home page, extensions, and the list of newly installed apps.
+
+**Responsibility.** This project compiles distribution sources and their known reputation; it does not vouch for third-party distributions. The decision to use them, and the outcome, rest with the operator.
+
 ### After downloading
 
 The downloaded file can live in any folder on the USB. For a standalone executable such as 3DP Net, keeping it under `tools\09-Driver-Detection-Maintenance` makes it easier to find later. You can also register it through the user tool path feature so the console launches it directly.

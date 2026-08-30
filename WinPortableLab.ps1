@@ -1295,6 +1295,7 @@ function Show-WplGui {
                 Url = 'https://www.3dpchip.com/3dpchip/3dp/net_down_en.php'
                 NoteKey = 'GuiNetPack3dpNote'
                 DescriptionKey = 'GuiNetPack3dpDesc'
+                ReputationKey = 'GuiNetPack3dpReputation'
                 Bundled = $false
             }
             [pscustomobject]@{
@@ -1303,6 +1304,7 @@ function Show-WplGui {
                 Url = 'https://www.snappy-driver-installer.org/'
                 NoteKey = 'GuiNetPackSdioNote'
                 DescriptionKey = 'GuiNetPackSdioDesc'
+                ReputationKey = 'GuiNetPackSdioReputation'
                 Bundled = $true
             }
             [pscustomobject]@{
@@ -1311,6 +1313,7 @@ function Show-WplGui {
                 Url = 'https://www.sysceo.com/software-softwarei-id-245.html'
                 NoteKey = 'GuiNetPackDrvceoNote'
                 DescriptionKey = 'GuiNetPackDrvceoDesc'
+                ReputationKey = 'GuiNetPackDrvceoReputation'
                 Bundled = $false
             }
         )
@@ -1389,6 +1392,26 @@ function Show-WplGui {
             $description.Foreground = $window.TryFindResource('InkSubtle')
             $stack.Children.Add($description) | Out-Null
 
+            # Reputation is reported as-is, including where communities disagree.
+            # Presenting only the favourable half would mislead the operator.
+            if ($source.ReputationKey) {
+                $reputationHeading = New-Object Windows.Controls.TextBlock
+                $reputationHeading.Text = Get-WplText -Key GuiNetPackReputation -Language $script:GuiLanguage
+                $reputationHeading.FontSize = 10
+                $reputationHeading.FontWeight = 'Medium'
+                $reputationHeading.Margin = New-Object Windows.Thickness 0,9,0,0
+                $reputationHeading.Foreground = $window.TryFindResource('InkTertiary')
+                $stack.Children.Add($reputationHeading) | Out-Null
+                $reputationText = New-Object Windows.Controls.TextBlock
+                $reputationText.Text = Get-WplText -Key ([string]$source.ReputationKey) -Language $script:GuiLanguage
+                $reputationText.FontSize = 11
+                $reputationText.LineHeight = 17
+                $reputationText.TextWrapping = 'Wrap'
+                $reputationText.Margin = New-Object Windows.Thickness 0,4,0,0
+                $reputationText.Foreground = $window.TryFindResource('InkSubtle')
+                $stack.Children.Add($reputationText) | Out-Null
+            }
+
             $addressText = New-Object Windows.Controls.TextBlock
             $addressText.Text = [string]$source.Url
             $addressText.FontFamily = New-Object Windows.Media.FontFamily 'Consolas'
@@ -1434,6 +1457,27 @@ function Show-WplGui {
 
             $card.Child = $stack
             $packList.Children.Add($card) | Out-Null
+        }
+
+        # The real hazard with these tools is a tampered mirror rather than the
+        # tool itself, so the source warning and the responsibility notice close
+        # the list instead of hiding in one card.
+        foreach ($noticeKey in @('GuiNetPackOfficialOnly','GuiNetPackUserResponsibility')) {
+            $notice = New-Object Windows.Controls.Border
+            $notice.Background = $window.TryFindResource('Surface2')
+            $notice.CornerRadius = New-Object Windows.CornerRadius 8
+            $notice.Padding = New-Object Windows.Thickness 14
+            $notice.Margin = New-Object Windows.Thickness 0,0,0,10
+            $notice.BorderThickness = New-Object Windows.Thickness 2,0,0,0
+            $notice.BorderBrush = $window.TryFindResource($(if ($noticeKey -eq 'GuiNetPackOfficialOnly') { 'Caution' } else { 'Hairline' }))
+            $noticeText = New-Object Windows.Controls.TextBlock
+            $noticeText.Text = Get-WplText -Key $noticeKey -Language $script:GuiLanguage
+            $noticeText.FontSize = 11
+            $noticeText.LineHeight = 17
+            $noticeText.TextWrapping = 'Wrap'
+            $noticeText.Foreground = $window.TryFindResource('InkSubtle')
+            $notice.Child = $noticeText
+            $packList.Children.Add($notice) | Out-Null
         }
 
         [void]$packWindow.ShowDialog()

@@ -512,4 +512,39 @@ Describe 'Network driver recovery contract' {
             }
         }
     }
+
+    It 'reports split community reputation instead of only the favourable half' {
+        # A source is kept or dropped on evidence, so the card must carry both
+        # sides where communities disagree, plus the responsibility notice.
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        $function = [regex]::Match($source,'(?s)function Get-WplNetworkPackSources.*?\n    \}')
+        Assert-WplTest ($function.Success) 'Get-WplNetworkPackSources could not be located.'
+        $reputationKeys = @([regex]::Matches($function.Value,"ReputationKey = '([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+        $urls = @([regex]::Matches($function.Value,"Url = '([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+        Assert-WplTest ($reputationKeys.Count -eq $urls.Count) 'Every one-pack source must declare a reputation entry.'
+        $localization = Get-Content -LiteralPath (Join-Path $root 'scripts\WinPortableLab.Localization.ps1') -Raw
+        foreach ($key in $reputationKeys) {
+            Assert-WplTest ($localization -match ('(?m)^\s*' + [regex]::Escape($key) + '=@\{')) "Undefined reputation key: $key"
+        }
+        foreach ($key in @('GuiNetPackOfficialOnly','GuiNetPackUserResponsibility')) {
+            Assert-WplTest ($source -match $key) "The one-pack window does not show $key."
+        }
+        # The contested entry must name both the favourable and the critical view.
+        $drvceo = [regex]::Match($localization,'(?m)^\s*GuiNetPackDrvceoReputation=@\{.*$')
+        Assert-WplTest ($drvceo.Success) 'GuiNetPackDrvceoReputation is missing.'
+        Assert-WplTest ($drvceo.Value -match '(?i)PUP') 'The DrvCeo reputation omits the PUP classification.'
+        Assert-WplTest ($drvceo.Value -match '(?i)reddit') 'The DrvCeo reputation omits the critical community view.'
+    }
+
+    It 'documents the split reputation and responsibility notice in both languages' {
+        foreach ($code in @('ko','en')) {
+            # Windows PowerShell 5.1 decodes -Raw with the ANSI code page, which
+            # mangles Hangul before the match. Read UTF-8 explicitly on both hosts.
+            $text = Get-Content -LiteralPath (Join-Path $root ('docs\{0}\NETWORK_DRIVERS.md' -f $code)) -Raw -Encoding utf8
+            Assert-WplTest ($text -match '(?i)PUP') "$code guide omits the PUP classification for automatic driver installers."
+            # The KO guide names Reddit in Hangul, so both spellings are accepted.
+            Assert-WplTest ($text -match '(?i)reddit' -or $text -match '\ub808\ub527') "$code guide omits the critical community view."
+            Assert-WplTest ($text -match '(?i)sysceo\.com') "$code guide does not pin the official DrvCeo source."
+        }
+    }
 }
