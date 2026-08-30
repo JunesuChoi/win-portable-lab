@@ -61,6 +61,14 @@ Registration checks the following and saves nothing if any check fails.
 
 The Authenticode signature state is recorded alongside the entry. An unsigned file can still be registered, but the observed state is written to the file.
 
+## The confirmation before launch
+
+If a registered path sits outside the `tools` tree, launching it raises one confirmation, even when the tool's risk tier is read-only. The file runs with the same administrator rights as the console, so the prompt exists to make clear that something other than the bundled tool is about to start. It shows the resolved path, whether the file is inside the `tools` tree, and its signature state.
+
+On the command line, add `-AcknowledgeRisk`.
+
+A file kept inside the `tools` tree launches without that prompt, signed or not. Many diagnostic utilities ship unsigned (Prime95, TestMem5, H2testw and others), so making a signature the condition would prompt almost every time and train you to dismiss it. Location is the check instead. If you bring your own copy of a tool, the simplest thing is to place it under `tools`.
+
 If a registered path later disappears, that tool falls back to the bundled search automatically. A diagnostic run is never interrupted by a stale entry.
 
 ## Notes
@@ -68,4 +76,3 @@ If a registered path later disappears, that tool falls back to the bundled searc
 Risk tiers come from the catalog. Changing a path does not change a tool's risk tier or its confirmation flow. Repointing DDU, for example, still treats it as a system-changing tool that requires acknowledgement.
 
 After changing a path, press `Refresh system information` in the GUI to pick it up.
-

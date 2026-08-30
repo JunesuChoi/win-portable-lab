@@ -611,6 +611,12 @@ Describe 'Elevated launch integrity contract' {
         Assert-WplTest ($trust.Success) 'Get-WplToolOverrideTrust body could not be located.'
         Assert-WplTest ($trust.Value -match 'InsideToolsRoot') 'The trust record does not report tools-root containment.'
         Assert-WplTest ($trust.Value -match 'Get-AuthenticodeSignature') 'The trust record does not inspect the signature.'
+        # Containment decides trust; the signature is reported but not required.
+        # Many bundled diagnostics ship unsigned, so requiring a signature would
+        # prompt on nearly every legitimate override and train operators to click
+        # through the warning.
+        Assert-WplTest ($trust.Value -match 'IsTrusted = \$insideTools') 'Trust must be decided by tools-root containment alone.'
+        Assert-WplTest ($trust.Value -notmatch "IsTrusted = \(\`$insideTools -and") 'A signature requirement was reintroduced into the trust decision.'
         $cli = Get-Content -LiteralPath (Join-Path $root 'scripts\Open-PortableTool.ps1') -Raw
         Assert-WplTest ($cli -match 'UntrustedOverrideBlocked') 'The CLI launcher does not gate an untrusted override.'
         $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw

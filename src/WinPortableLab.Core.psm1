@@ -134,6 +134,15 @@ function Get-WplToolOverride {
 # Callers use this to require an explicit confirmation for an overridden launcher
 # even when its catalog risk tier is read-only, which would otherwise launch
 # without any prompt. Returns $null when the launcher uses the bundled tree.
+#
+# Trust is decided by containment in the tools tree alone. A valid Authenticode
+# signature is reported but deliberately not required: many of the diagnostic
+# utilities this console exists to run ship unsigned (Prime95, y-cruncher,
+# TestMem5, HCI MemTest, H2testw, several NirSoft tools), so requiring a
+# signature would prompt on almost every legitimate override and train the
+# operator to click through the warning. Containment is the property that
+# actually distinguishes "a copy inside the pack I curated" from "any file on
+# the machine", and it is what the plan validator already enforces.
 function Get-WplToolOverrideTrust {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][AllowEmptyString()][string]$LauncherId)
@@ -150,7 +159,7 @@ function Get-WplToolOverrideTrust {
         Path = $full
         InsideToolsRoot = $insideTools
         SignatureStatus = $signature
-        IsTrusted = ($insideTools -and $signature -eq 'Valid')
+        IsTrusted = $insideTools
     }
 }
 
