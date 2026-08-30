@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onepack-portable-korea/win-portable-lab/schemas/tool-package.schema.json",
+  "title": "Win Portable Lab tool package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "packageId",
+    "catalogId",
+    "displayName",
+    "version",
+    "package",
+    "source",
+    "risk",
+    "redistribution",
+    "update"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "packageId": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "catalogId": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "fileName"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "zip",
+            "7z-sfx",
+            "exe"
+          ]
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "trust",
+        "sha256"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https?://"
+        },
+        "referer": {
+          "type": "string",
+          "pattern": "^https://"
+        },
+        "trust": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "form": {
+          "type": "object"
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "highLoad",
+        "writesData",
+        "requiresAdmin",
+        "requiresReboot"
+      ],
+      "properties": {
+        "highLoad": {
+          "type": "boolean"
+        },
+        "writesData": {
+          "type": "boolean"
+        },
+        "requiresAdmin": {
+          "type": "boolean"
+        },
+        "requiresReboot": {
+          "type": "boolean"
+        }
+      }
+    },
+    "redistribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "note"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "update": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy"
+      ],
+      "properties": {
+        "strategy": {
+          "enum": [
+            "github-release",
+            "rolling",
+            "manual"
+          ]
+        }
+      }
+    }
+  }
+}

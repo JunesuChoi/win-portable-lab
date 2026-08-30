@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "latencymon",
+  "catalogId": "latencymon",
+  "displayName": "LatencyMon",
+  "version": "7.40",
+  "package": {
+    "kind": "exe",
+    "fileName": "LatencyMon.exe"
+  },
+  "source": {
+    "url": "https://www.resplendence.com/download/LatencyMon.exe",
+    "trust": "official",
+    "sha256": "D4E472879954380F5FBC49E2D5BE8C5DBD75D5CF8908DD77278472598C6D17AF"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Home Edition is free for personal use only; commercial use requires a licence."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

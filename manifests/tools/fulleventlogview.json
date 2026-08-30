@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "fulleventlogview",
+  "catalogId": "fulleventlogview",
+  "displayName": "FullEventLogView",
+  "version": "1.81",
+  "package": {
+    "kind": "zip",
+    "fileName": "fulleventlogview-x64.zip"
+  },
+  "source": {
+    "url": "https://www.nirsoft.net/utils/fulleventlogview-x64.zip",
+    "trust": "official",
+    "sha256": "DD67610F19A4FFFE77460F55EBB318523CC8BCBCB8FC3D462EE0DFFAB4BA1D95"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

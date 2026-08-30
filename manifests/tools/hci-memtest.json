@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "hci-memtest",
+  "catalogId": "hci-memtest",
+  "displayName": "HCI MemTest (free)",
+  "version": "7.0",
+  "package": {
+    "kind": "zip",
+    "fileName": "MemTest.zip"
+  },
+  "source": {
+    "url": "https://hcidesign.com/memtest/MemTest.zip",
+    "trust": "official",
+    "sha256": "08960F448F4514E7C2D388420560D7D03F5F0A54EC8F9663D66C887B8E4679E6"
+  },
+  "risk": {
+    "highLoad": true,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Free edition only. Pro and Deluxe are paid and must not be redistributed."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

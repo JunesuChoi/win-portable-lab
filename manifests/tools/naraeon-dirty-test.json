@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packageId": "naraeon-dirty-test",
+  "catalogId": "naraeon-dirty-test",
+  "displayName": "Naraeon Dirty Test",
+  "version": "1.0.0.0",
+  "package": {
+    "kind": "exe",
+    "fileName": "DirtyTest.exe"
+  },
+  "source": {
+    "url": "http://nstupdate.naraeon.net/DirtyTest.exe",
+    "trust": "author-site-http-signed-and-hash-pinned",
+    "sha256": "3A94CF053BC7372B7CFEF65CA14CE0D4D07C8AD5AD8C3AACD2F72D1EB33ED311",
+    "referer": "https://www.naraeon.net/latest-dirty-test/"
+  },
+  "risk": {
+    "highLoad": true,
+    "writesData": true,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

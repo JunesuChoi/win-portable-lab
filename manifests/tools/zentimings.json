@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "zentimings",
+  "catalogId": "zentimings",
+  "displayName": "ZenTimings",
+  "version": "1.39",
+  "package": {
+    "kind": "zip",
+    "fileName": "ZenTimings_v1.39.zip"
+  },
+  "source": {
+    "url": "https://github.com/irusanov/ZenTimings/releases/download/v1.39/ZenTimings_v1.39.zip",
+    "trust": "official-github-release-with-published-sha256",
+    "sha256": "2B350F44CD823BEF50C4F8D3F3E75A9E03CFB9EBE73BEA9D995B6A826A7BDFDF"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "GPL redistribution requires a complete notice/source-offer workflow; download on demand for now."
+  },
+  "update": {
+    "strategy": "github-release"
+  }
+}

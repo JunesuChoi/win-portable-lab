@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "hwinfo",
+  "catalogId": "hwinfo",
+  "displayName": "HWiNFO",
+  "version": "8.52.6060",
+  "package": {
+    "kind": "zip",
+    "fileName": "hwi_852.zip"
+  },
+  "source": {
+    "url": "https://www.sac.sk/download/utildiag/hwi_852.zip",
+    "trust": "vendor-listed-mirror",
+    "sha256": "0CE80064422E128A0F4257733C41E02970B5997A04361ACCC1F7F2F4B059F1ED"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "driverstoreexplorer",
+  "catalogId": "driverstoreexplorer",
+  "displayName": "Driver Store Explorer",
+  "version": "1.0.26",
+  "package": {
+    "kind": "zip",
+    "fileName": "DriverStoreExplorer-v1.0.26.zip"
+  },
+  "source": {
+    "url": "https://github.com/lostindark/DriverStoreExplorer/releases/download/v1.0.26/DriverStoreExplorer-v1.0.26.zip",
+    "trust": "official-github-release",
+    "sha256": "89A5ED17BF7C08C869294AF2202F5F9B34050F81C2FEEAA6CD694970DA8E931F"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": true,
+    "note": "License permits redistribution; retain upstream notices."
+  },
+  "update": {
+    "strategy": "github-release"
+  }
+}

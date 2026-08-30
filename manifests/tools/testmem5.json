@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "testmem5",
+  "catalogId": "testmem5",
+  "displayName": "TestMem5",
+  "version": "0.13.1",
+  "package": {
+    "kind": "7z-sfx",
+    "fileName": "TestMem5.7z"
+  },
+  "source": {
+    "url": "https://github.com/CoolCmd/TestMem5/releases/download/v0.13.1/TestMem5.7z",
+    "trust": "official",
+    "sha256": "05FFB5BBAA0C2243BF25664049C7AA3615A77BD5036497EF845FC8ED50128C12"
+  },
+  "risk": {
+    "highLoad": true,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

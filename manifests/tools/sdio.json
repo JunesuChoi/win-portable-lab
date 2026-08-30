@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "sdio",
+  "catalogId": "sdio",
+  "displayName": "Snappy Driver Installer Origin",
+  "version": "830",
+  "package": {
+    "kind": "zip",
+    "fileName": "SDIO.zip"
+  },
+  "source": {
+    "url": "https://www.glenn.delahoy.com/downloads/sdio/SDIO.zip",
+    "trust": "official",
+    "sha256": "7BB0CECACA9D69493A730763C980471A8EADD0C5BF9BF5B20DF2D090E3692819"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": true,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "GPL-3.0 source availability must accompany any redistribution. Driver packs are downloaded separately by the tool and are not bundled."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

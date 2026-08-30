@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packageId": "validrive",
+  "catalogId": "validrive",
+  "displayName": "ValiDrive",
+  "version": "1.0.1",
+  "package": {
+    "kind": "exe",
+    "fileName": "validrive.exe"
+  },
+  "source": {
+    "url": "https://www.grc.com/files/validrive.exe",
+    "trust": "official",
+    "sha256": "99620686B3CC1D7B60CCE80807F8323670F752AFDA2D51C94CAD7D2172FA4F29",
+    "referer": "https://www.grc.com/ValiDrive.htm"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": true,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

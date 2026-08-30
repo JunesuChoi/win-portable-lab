@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "usbdeview",
+  "catalogId": "usbdeview",
+  "displayName": "USBDeview",
+  "version": "3.10",
+  "package": {
+    "kind": "zip",
+    "fileName": "usbdeview-x64.zip"
+  },
+  "source": {
+    "url": "https://www.nirsoft.net/utils/usbdeview-x64.zip",
+    "trust": "official",
+    "sha256": "7EB383F7FBDDE8B48ECBA07CD97ADDA515E8FFC04839B0427CC89CED893C161B"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

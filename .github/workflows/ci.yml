@@ -1,0 +1,19 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repository validation
+        shell: pwsh
+        run: ./scripts/Test-Repository.ps1 -Root $PWD -Language en
+      - name: Pester
+        shell: pwsh
+        run: |
+          Install-Module Pester -MinimumVersion 5.6.1 -Scope CurrentUser -Force
+          Invoke-Pester ./tests -CI

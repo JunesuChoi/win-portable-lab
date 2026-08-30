@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "glary-utilities",
+  "catalogId": "glary-utilities",
+  "displayName": "Glary Utilities Portable",
+  "version": "6.46",
+  "package": {
+    "kind": "zip",
+    "fileName": "guportable.zip"
+  },
+  "source": {
+    "url": "https://download.glarysoft.com/guportable.zip",
+    "trust": "official",
+    "sha256": "C6B0442192D1A36D2796D43440AE43F948F00A88A36E798D1CE96FA3DC8DA301"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": true,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Free for personal use only; business use requires a licence. Not bundled by the offline pack."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

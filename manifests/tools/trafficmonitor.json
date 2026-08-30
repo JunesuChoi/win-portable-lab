@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "trafficmonitor",
+  "catalogId": "trafficmonitor",
+  "displayName": "TrafficMonitor Lite",
+  "version": "1.86",
+  "package": {
+    "kind": "zip",
+    "fileName": "TrafficMonitor_V1.86_x64_Lite.zip"
+  },
+  "source": {
+    "url": "https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.86/TrafficMonitor_V1.86_x64_Lite.zip",
+    "trust": "official-github-release",
+    "sha256": "D9774A64268F952B5CB88A1EEAD399F863F7D4AB64E945F19C096FED89CC1145"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Anti-996 license terms require an explicit redistribution review before bundling."
+  },
+  "update": {
+    "strategy": "github-release"
+  }
+}

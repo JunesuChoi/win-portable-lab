@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "batteryinfoview",
+  "catalogId": "batteryinfoview",
+  "displayName": "NirSoft BatteryInfoView",
+  "version": "1.26",
+  "package": {
+    "kind": "zip",
+    "fileName": "batteryinfoview.zip"
+  },
+  "source": {
+    "url": "https://www.nirsoft.net/utils/batteryinfoview.zip",
+    "trust": "official",
+    "sha256": "BE98EE432621656CE6041C962964C3E27E998CABD25B535F1102523110538AF7"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

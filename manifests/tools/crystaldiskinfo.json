@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "crystaldiskinfo",
+  "catalogId": "crystaldiskinfo",
+  "displayName": "CrystalDiskInfo",
+  "version": "9.9.2",
+  "package": {
+    "kind": "zip",
+    "fileName": "CrystalDiskInfo9_9_2.zip"
+  },
+  "source": {
+    "url": "https://downloads.sourceforge.net/project/crystaldiskinfo/9.9.2/CrystalDiskInfo9_9_2.zip",
+    "trust": "official-project-mirror",
+    "sha256": "01ACB3176851A85824D9589C6514E3EB9771EB7F9D5EE58ED9B4E057BD21C7DF"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": true,
+    "note": "License permits redistribution; retain upstream notices."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

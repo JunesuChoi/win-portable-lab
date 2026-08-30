@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "ventoy",
+  "catalogId": "ventoy",
+  "displayName": "Ventoy",
+  "version": "1.1.17",
+  "package": {
+    "kind": "zip",
+    "fileName": "ventoy-1.1.17-windows.zip"
+  },
+  "source": {
+    "url": "https://github.com/ventoy/Ventoy/releases/download/v1.1.17/ventoy-1.1.17-windows.zip",
+    "trust": "official",
+    "sha256": "D250E97A7595FDAC4F97DEBC630D7A8DA942319274A76CB32384596B659DBAEB"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": true,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "GPL-3.0 source availability must accompany any redistribution."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

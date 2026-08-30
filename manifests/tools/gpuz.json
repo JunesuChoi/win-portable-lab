@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "packageId": "gpuz",
+  "catalogId": "gpuz",
+  "displayName": "GPU-Z",
+  "version": "2.70.0",
+  "package": {
+    "kind": "exe",
+    "fileName": "GPU-Z.2.70.0.exe"
+  },
+  "source": {
+    "url": "https://www.techpowerup.com/download/techpowerup-gpu-z/",
+    "trust": "official",
+    "sha256": "6CB0EF29682452DE81A9576808881685161411A1FAD00938BA04131159979C29",
+    "form": {
+      "id": "3180",
+      "server_id": "15"
+    }
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

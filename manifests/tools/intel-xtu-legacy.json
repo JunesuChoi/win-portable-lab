@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packageId": "intel-xtu-legacy",
+  "catalogId": "intel-xtu",
+  "displayName": "Intel XTU Legacy",
+  "version": "7.14.2.93",
+  "package": {
+    "kind": "exe",
+    "fileName": "XTUSetup_7.14.2.93.exe"
+  },
+  "source": {
+    "url": "https://downloadmirror.intel.com/873886/XTUSetup_7.14.2.93.exe",
+    "trust": "official-installer-not-portable",
+    "sha256": "C8F39BDD52681F8780A0ED1BD96ED29EF985A0ADF663828678AC2C6CFFFC2925",
+    "referer": "https://www.intel.com/content/www/us/en/download/17881/intel-extreme-tuning-utility-intel-xtu.html"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

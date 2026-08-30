@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "y-cruncher",
+  "catalogId": "y-cruncher",
+  "displayName": "y-cruncher",
+  "version": "0.8.7.9547b",
+  "package": {
+    "kind": "zip",
+    "fileName": "y-cruncher-v0.8.7.9547b.zip"
+  },
+  "source": {
+    "url": "https://cdn.numberworld.org/y-cruncher-downloads/y-cruncher%20v0.8.7.9547b.zip",
+    "trust": "official",
+    "sha256": "3BE696C1CC44907F2EA73AAC35DE4A5D45048255308F34ED4410A743163A4F87"
+  },
+  "risk": {
+    "highLoad": true,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

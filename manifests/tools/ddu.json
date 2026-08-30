@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "ddu",
+  "catalogId": "ddu",
+  "displayName": "Display Driver Uninstaller",
+  "version": "18.1.5.7",
+  "package": {
+    "kind": "7z-sfx",
+    "fileName": "DDU-v18.1.5.7.exe"
+  },
+  "source": {
+    "url": "https://download.wagnardsoft.com/DDU/DDU%20v18.1.5.7.exe",
+    "trust": "official",
+    "sha256": "8C12B7D85C18B1642C18DFB87E1E17B66E363888DDB1414F24ABA1F7131FAAE9"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": true
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

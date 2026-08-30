@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "cpuz",
+  "catalogId": "cpuz",
+  "displayName": "CPU-Z",
+  "version": "3.01",
+  "package": {
+    "kind": "zip",
+    "fileName": "cpu-z_3.01-en.zip"
+  },
+  "source": {
+    "url": "https://download.cpuid.com/cpu-z/cpu-z_3.01-en.zip",
+    "trust": "official",
+    "sha256": "8AE3B45D43D97E6CE19535C045CD1E5394C7A3A5334DC01F63EDD760ACE40827"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

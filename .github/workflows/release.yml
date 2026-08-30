@@ -1,0 +1,33 @@
+name: Release artifacts
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate
+        shell: pwsh
+        run: ./scripts/Test-Repository.ps1 -Root $PWD -Language en
+      - name: Build core package, checksum and SBOM
+        shell: pwsh
+        run: ./scripts/New-ReleaseArtifacts.ps1 -Root $PWD -OutputPath ./dist -Version '${{ github.ref_name }}'
+      - name: Attest core archive
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: dist/*.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WinPortableLab-${{ github.ref_name }}
+          path: dist/*
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

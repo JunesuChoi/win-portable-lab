@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "fancontrol",
+  "catalogId": "fancontrol",
+  "displayName": "Fan Control",
+  "version": "275",
+  "package": {
+    "kind": "zip",
+    "fileName": "FanControl_275_net_10_0.zip"
+  },
+  "source": {
+    "url": "https://github.com/Rem0o/FanControl.Releases/releases/download/V275/FanControl_275_net_10_0.zip",
+    "trust": "official-github-release",
+    "sha256": "369445D877944E0469B1AE323B09E256672F31FA9969D8787EBF194D5AC7C030"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "github-release"
+  }
+}

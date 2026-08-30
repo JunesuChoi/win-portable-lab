@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "sysinternals",
+  "catalogId": "sysinternals",
+  "displayName": "Sysinternals Suite",
+  "version": "snapshot-2026-08-29",
+  "package": {
+    "kind": "zip",
+    "fileName": "SysinternalsSuite.zip"
+  },
+  "source": {
+    "url": "https://download.sysinternals.com/files/SysinternalsSuite.zip",
+    "trust": "official-rolling",
+    "sha256": "EC1C22581518E5A8661EC26886BC2EAEFE9E59CF2AD7FBA41926C19D356DE169"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "rolling"
+  }
+}

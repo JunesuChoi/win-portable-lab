@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "smartmontools",
+  "catalogId": "smartmontools",
+  "displayName": "smartmontools",
+  "version": "7.5",
+  "package": {
+    "kind": "7z-sfx",
+    "fileName": "smartmontools-7.5.win32-setup.exe"
+  },
+  "source": {
+    "url": "https://downloads.sourceforge.net/project/smartmontools/smartmontools/7.5/smartmontools-7.5.win32-setup.exe",
+    "trust": "official-project-mirror",
+    "sha256": "896337FCC253220614CF8CDBD5CF2321C5AA326A37A04160A672A281E6104C70"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": true,
+    "note": "License permits redistribution; retain upstream notices."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

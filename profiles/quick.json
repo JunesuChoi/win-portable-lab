@@ -1,0 +1,16 @@
+﻿{
+  "id": "quick",
+  "name": "Quick field check",
+  "nameKo": "빠른 현장 점검",
+  "nameEn": "Quick field check",
+  "estimatedMinutes": 10,
+  "requiresConfirmation": false,
+  "tools": ["hwinfo", "smartmontools"],
+  "steps": [
+    "inventory",
+    "storage-health",
+    "pnp-problems",
+    "system-event-summary",
+    "sensor-idle-snapshot"
+  ]
+}

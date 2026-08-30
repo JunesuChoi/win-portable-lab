@@ -1,0 +1,17 @@
+﻿{
+  "id": "standard",
+  "name": "Standard stability check",
+  "nameKo": "표준 안정성 점검",
+  "nameEn": "Standard stability check",
+  "estimatedMinutes": 60,
+  "requiresConfirmation": true,
+  "tools": ["hwinfo", "smartmontools", "diskspd", "prime95", "y-cruncher"],
+  "steps": [
+    "quick-profile",
+    "storage-file-benchmark",
+    "cpu-short-stability",
+    "memory-short-stability",
+    "sensor-load-capture",
+    "post-test-event-diff"
+  ]
+}

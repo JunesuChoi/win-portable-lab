@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "prime95",
+  "catalogId": "prime95",
+  "displayName": "Prime95",
+  "version": "30.19b20",
+  "package": {
+    "kind": "zip",
+    "fileName": "p95v3019b20.win64.zip"
+  },
+  "source": {
+    "url": "https://download.mersenne.ca/gimps/v30/30.19/p95v3019b20.win64.zip",
+    "trust": "official",
+    "sha256": "D9475F2FF3F4A6A701ABC49A86A66126CB48ABD10BDA6FA87039D98FA8756BCA"
+  },
+  "risk": {
+    "highLoad": true,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

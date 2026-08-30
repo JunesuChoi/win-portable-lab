@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packageId": "intel-xtu-ultra",
+  "catalogId": "intel-xtu",
+  "displayName": "Intel XTU Ultra",
+  "version": "10.0.1.188",
+  "package": {
+    "kind": "exe",
+    "fileName": "XTUSetup_10.0.1.188.exe"
+  },
+  "source": {
+    "url": "https://downloadmirror.intel.com/873886/XTUSetup_10.0.1.188.exe",
+    "trust": "official-installer-not-portable",
+    "sha256": "0118C89C059D348FF3D45E72F3CB88241EEEB7BE1FC27D284ACA8EECE5F1C7ED",
+    "referer": "https://www.intel.com/content/www/us/en/download/17881/intel-extreme-tuning-utility-intel-xtu.html"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

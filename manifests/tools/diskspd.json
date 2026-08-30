@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "diskspd",
+  "catalogId": "diskspd",
+  "displayName": "Microsoft DiskSpd",
+  "version": "2.2",
+  "package": {
+    "kind": "zip",
+    "fileName": "DiskSpd.ZIP"
+  },
+  "source": {
+    "url": "https://github.com/microsoft/diskspd/releases/download/v2.2/DiskSpd.ZIP",
+    "trust": "official",
+    "sha256": "496DF11E6375C1D564AF3F8F2990734D9AFC2B558469FD57B1BFFA9313A5A6CE"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": true,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": true,
+    "note": "License permits redistribution; retain upstream notices."
+  },
+  "update": {
+    "strategy": "github-release"
+  }
+}

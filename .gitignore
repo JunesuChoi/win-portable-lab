@@ -1,0 +1,34 @@
+reports/*
+!reports/.gitkeep
+recommendations/*
+!recommendations/.gitkeep
+tools/*
+!tools/.gitkeep
+!tools/README.md
+!tools/*/
+tools/*/*
+!tools/*/README.md
+downloads/
+.retired/
+offline-packs/
+sessions/*
+!sessions/.gitkeep
+logs/*
+!logs/.gitkeep
+*.log
+*.tmp
+.vs/
+.idea/
+dist/
+exa-results/
+testResults.xml
+
+# Per-machine tool path overrides. Paths are local to one operator's machine.
+config/user-tool-paths.json
+
+# Internal working documents: implementation audit, roadmap, agent instructions
+# and the third-party brand analysis used while building the palette.
+AGENTS.md
+DESIGN.md
+docs/ko/PRODUCT_PLAN.md
+docs/en/PRODUCT_PLAN.md

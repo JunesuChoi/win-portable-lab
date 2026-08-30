@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "memtest86plus",
+  "catalogId": "memtest86plus",
+  "displayName": "Memtest86+",
+  "version": "8.10",
+  "package": {
+    "kind": "zip",
+    "fileName": "mt86plus_8.10.binaries.zip"
+  },
+  "source": {
+    "url": "https://www.memtest.org/download/v8.10/mt86plus_8.10.binaries.zip",
+    "trust": "official",
+    "sha256": "7E6C5162CB84AB959AEB9D13C9CFD6976B0DEC3B34936B73820B20C55EB26C29"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": true
+  },
+  "redistribution": {
+    "allowed": true,
+    "note": "License permits redistribution; retain upstream notices."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

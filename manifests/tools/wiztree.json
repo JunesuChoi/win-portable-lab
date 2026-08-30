@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "wiztree",
+  "catalogId": "wiztree",
+  "displayName": "WizTree Portable",
+  "version": "4.30",
+  "package": {
+    "kind": "zip",
+    "fileName": "wiztree_4_30_portable.zip"
+  },
+  "source": {
+    "url": "https://diskanalyzer.com/files/wiztree_4_30_portable.zip",
+    "trust": "official",
+    "sha256": "8367F467070A8CF6E0608EACE0DFC96796ED145E291E88F96D2621EA45FD7B5E"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Free for non-commercial use; commercial deployment requires a licence."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

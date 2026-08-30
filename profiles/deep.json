@@ -1,0 +1,17 @@
+﻿{
+  "id": "deep",
+  "name": "Deep overclock validation",
+  "nameKo": "심층 오버클럭 검증",
+  "nameEn": "Deep overclock validation",
+  "estimatedMinutes": 360,
+  "requiresConfirmation": true,
+  "tools": ["hwinfo", "smartmontools", "prime95", "y-cruncher", "memtest86plus", "occt"],
+  "steps": [
+    "standard-profile",
+    "cpu-extended-stability",
+    "memory-pattern-suite",
+    "combined-load-optional",
+    "boot-memory-test-guidance",
+    "post-test-event-diff"
+  ]
+}

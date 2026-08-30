@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "occt",
+  "catalogId": "occt",
+  "displayName": "OCCT",
+  "version": "17.0.18",
+  "package": {
+    "kind": "exe",
+    "fileName": "OCCT17.0.18.exe"
+  },
+  "source": {
+    "url": "https://www.ocbase.com/download/per/stable/OCCT.exe",
+    "trust": "official",
+    "sha256": "FE25337CED25C71BB20A8CF039B22B3AC06FBBBE4C256DE0A1FEA7AC30F1A716"
+  },
+  "risk": {
+    "highLoad": true,
+    "writesData": false,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

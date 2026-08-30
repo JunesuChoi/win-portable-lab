@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packageId": "amd-cleanup-utility",
+  "catalogId": "amd-cleanup-utility",
+  "displayName": "AMD Cleanup Utility",
+  "version": "1.0.0.1",
+  "package": {
+    "kind": "exe",
+    "fileName": "amdcleanuputility.exe"
+  },
+  "source": {
+    "url": "https://drivers.amd.com/drivers/amdcleanuputility.exe",
+    "trust": "official",
+    "sha256": "D05A543685AEA37D50995D294EAF5F384F3546CF74CCA1A37B4D5787E71B744E",
+    "referer": "https://www.amd.com/en/resources/support-articles/faqs/GPU-601.html"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": true
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

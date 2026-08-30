@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packageId": "h2testw",
+  "catalogId": "h2testw",
+  "displayName": "H2testw",
+  "version": "1.4",
+  "package": {
+    "kind": "zip",
+    "fileName": "h2testw_1.4.zip"
+  },
+  "source": {
+    "url": "https://ftp.heise.de/ct/ctsi/h2testw_1.4.zip",
+    "trust": "official-publisher",
+    "sha256": "0D54B8BECA3BC2EBFAB543DBE793D52658D278538F9062B816FB77ABE2DAC187",
+    "referer": "https://www.heise.de/download/product/h2testw-50539"
+  },
+  "risk": {
+    "highLoad": true,
+    "writesData": true,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

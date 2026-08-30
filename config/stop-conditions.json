@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "defaultTimeoutMinutes": 30,
+  "pollSeconds": 2,
+  "minimumFreeMemoryMb": 512,
+  "maximumCpuTemperatureC": 95,
+  "maximumGpuTemperatureC": 92,
+  "notes": {
+    "ko": "온도 자동 중단은 센서 공급자가 값을 제공할 때만 적용됩니다. 취소 마커와 시간 제한은 항상 적용됩니다.",
+    "en": "Temperature stops apply only when a sensor provider exposes values. Cancellation markers and timeouts always apply."
+  }
+}

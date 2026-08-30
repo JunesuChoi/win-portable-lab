@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packageId": "ryzen-master",
+  "catalogId": "ryzen-master",
+  "displayName": "AMD Ryzen Master",
+  "version": "3.1.1.5502",
+  "package": {
+    "kind": "exe",
+    "fileName": "amd_ryzen_master_3.1.1.5502.exe"
+  },
+  "source": {
+    "url": "https://drivers.amd.com/drivers/amd_ryzen_master_3.1.1.5502.exe",
+    "trust": "official-installer-not-portable",
+    "sha256": "8F3F687C46802FEA1464B43663EE9A99E89A61216981B89889BEF5C0BF105749",
+    "referer": "https://www.amd.com/en/products/software/ryzen-master.html"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Not bundled by the offline pack without explicit vendor permission."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

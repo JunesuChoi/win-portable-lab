@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "crystaldiskmark",
+  "catalogId": "crystaldiskmark",
+  "displayName": "CrystalDiskMark",
+  "version": "9.0.3",
+  "package": {
+    "kind": "zip",
+    "fileName": "CrystalDiskMark9_0_3.zip"
+  },
+  "source": {
+    "url": "https://downloads.sourceforge.net/project/crystaldiskmark/9.0.3/CrystalDiskMark9_0_3.zip",
+    "trust": "official-project-mirror",
+    "sha256": "E0C1E76A8CA5DF524FFB83B4553CC8F27E539FEB3C2A692CC41189783C494B78"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": true,
+    "requiresAdmin": false,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": true,
+    "note": "License permits redistribution; retain upstream notices."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}
