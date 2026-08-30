@@ -19,7 +19,7 @@
 
 ## 🎯 Why this exists / 왜 만들었나
 
-현장 점검은 보통 낡은 실행 파일 30개가 뒤섞인 폴더와, 한 기술자의 머릿속에만 있는 점검 순서로 이루어집니다. 이 프로젝트는 그것을 **감사 가능한 형태**로 바꿉니다.
+현장 점검은 보통 낡은 실행 파일 30개가 뒤섞인 폴더 하나와, 한 기술자의 머릿속에만 있는 점검 순서에 의존합니다. 이 프로젝트는 그 방식을 **감사할 수 있는 형태**로 바꿉니다.
 
 모든 도구에는 고정된 SHA-256, 선언된 위험 등급, 기록된 실행 모드, 그리고 두 언어로 작성된 안내서가 있습니다. 콘솔은 실제 하드웨어를 읽고 그 하드웨어에 맞는 도구만 권장합니다. 인텔 장비에는 ZenTimings가 뜨지 않고, 데스크톱에는 배터리 항목이 나오지 않으며, 미니덤프가 없는 시스템에는 BlueScreenView를 권하지 않습니다.
 
@@ -80,7 +80,7 @@ That is it. The dashboard opens, shows a hardware summary immediately, and finis
 
 ## 📦 The catalog / 도구 카탈로그
 
-용도가 이름에 드러나는 9개 폴더에 34개 도구가 있습니다. 폴더명만 봐도 그 도구가 무엇을 위한 것인지 알 수 있습니다.
+용도가 이름에 드러나는 9개 폴더에 34개 도구가 있습니다. 폴더 이름만 봐도 그 도구를 어디에 쓰는지 알 수 있습니다.
 
 34 tools across 9 purpose-named folders, so the layout tells you what a tool is for before you open it.
 
@@ -114,7 +114,7 @@ The guides are not link dumps. [TESTMEM5.md](docs/en/tools/TESTMEM5.md) compares
 
 ## 🔁 Cross-runtime guarantee / 듀얼 런타임 보장
 
-Windows PowerShell 5.1과 PowerShell 7은 데이터를 조용히 망가뜨리는 방식으로 다르게 동작합니다. 5.1의 `ConvertFrom-Json`은 최상위 JSON 배열을 단일 중첩 객체로 반환하는데, 이 때문에 44행 런처 감사가 의미 없는 1행으로 뭉개졌고 회귀 테스트가 잡아내기 전까지 드러나지 않았습니다.
+Windows PowerShell 5.1과 PowerShell 7은 데이터를 조용히 망가뜨리는 방식으로 다르게 동작합니다. 5.1의 `ConvertFrom-Json`은 최상위 JSON 배열을 단일 중첩 객체로 반환하는데, 이 때문에 44행 런처 감사가 의미 없는 1행으로 뭉뚱그려졌고 회귀 테스트가 잡아내기 전까지 드러나지 않았습니다.
 
 Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly corrupt data. `ConvertFrom-Json` on 5.1 returns a top-level JSON array as a single nested object, which silently collapsed a 44-row launcher audit into one meaningless row until a regression test caught it.
 
@@ -124,9 +124,9 @@ Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly 
 .\scripts\Test-Regression.ps1 -Root .
 ```
 
-29개 테스트, 두 런타임, Pester 3.4와 Pester 6 모두. 테스트는 실제로 중요한 동작을 검증합니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 모든 Sysinternals 런처가 모달 대화상자에 걸리지 않도록 `-accepteula`를 전달하는지, 실제 출력을 낸 도움말 실행이 실패로 기록되지 않는지입니다.
+테스트 48개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 모든 Sysinternals 런처가 모달 대화상자에 걸리지 않도록 `-accepteula`를 전달하는지, 실제 출력을 낸 도움말 실행이 실패로 기록되지 않는지입니다.
 
-29 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that every Sysinternals launcher passes `-accepteula` so it does not hang on a modal dialog, and that a help invocation printing real output is not recorded as a failure.
+48 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that every Sysinternals launcher passes `-accepteula` so it does not hang on a modal dialog, and that a help invocation printing real output is not recorded as a failure.
 
 ---
 
@@ -156,7 +156,7 @@ The interface uses a single chromatic accent plus three muted semantic colours f
 
 ## 🚫 Non-goals / 하지 않는 것
 
-Windows 설치나 디블로트. 자동 튜닝. 독점 바이너리 번들링. 한 번 통과한 테스트로 시스템이 안정적이라고 선언하는 일.
+Windows 설치나 디블로트. 자동 튜닝. 독점적 바이너리를 번들로 묶는 일. 한 번 통과한 테스트로 시스템이 안정적이라고 선언하는 일.
 
 Installing or debloating Windows. Auto-tuning anything. Bundling proprietary binaries. Declaring a system stable from one passing test.
 
@@ -178,7 +178,7 @@ Installing or debloating Windows. Auto-tuning anything. Bundling proprietary bin
 
 ## 📄 Licence / 라이선스
 
-프로젝트의 스크립트, 설정, 문서는 MIT 라이선스입니다([LICENSE](LICENSE)). 서드파티 진단 프로그램은 필요할 때 내려받으며 이 저장소에 커밋되지 않고 각자의 제조사 약관을 따릅니다. 일부는 개인 사용만 무료이므로 상업적 사용 전에 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 읽어주세요.
+프로젝트의 스크립트, 설정, 문서는 MIT 라이선스입니다([LICENSE](LICENSE)). 서드파티 진단 프로그램은 필요할 때 내려받으며 이 저장소에 커밋되지 않고 각자의 제조사 약관을 따릅니다. 일부는 개인 사용만 무료이므로 상업적 사용 전에 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 확인하십시오.
 
 Project scripts, configuration and documentation are MIT licensed; see [LICENSE](LICENSE). Third-party diagnostic programs are downloaded on demand, are never committed here, and remain under their own vendor terms. Several are free for personal use only, so read [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before commercial use.
 
@@ -186,7 +186,7 @@ Project scripts, configuration and documentation are MIT licensed; see [LICENSE]
 
 ## 🤝 Contributing / 기여
 
-도구를 추가하려면 카탈로그 항목, 실제 고정 해시가 있는 매니페스트, 위험 등급이 선언된 런처, 그리고 KO/EN 문서가 모두 필요합니다. [CONTRIBUTING.md](CONTRIBUTING.md)에 점검 목록이 있고, 저장소 검증이 빠진 것을 알려줍니다.
+도구를 추가하려면 카탈로그 항목, 실제 고정 해시가 있는 매니페스트, 위험 등급이 선언된 런처, 그리고 KO/EN 문서가 모두 필요합니다. [CONTRIBUTING.md](CONTRIBUTING.md)에 점검 목록이 있고, 저장소 검증이 무엇이 빠졌는지 알려줍니다.
 
 Adding a tool means adding a catalog entry, a manifest with a real pinned hash, a launcher with a declared risk tier, and KO/EN documentation. [CONTRIBUTING.md](CONTRIBUTING.md) has the checklist. Repository validation will tell you what you missed.
 

@@ -547,4 +547,19 @@ Describe 'Network driver recovery contract' {
             Assert-WplTest ($text -match '(?i)sysceo\.com') "$code guide does not pin the official DrvCeo source."
         }
     }
+
+    It 'keeps the advertised test count in step with the suite' {
+        # A README that claims a stale number is a small lie that survives for
+        # months, so the count is asserted against the actual test total.
+        $readme = Get-Content -LiteralPath (Join-Path $root 'README.md') -Raw -Encoding utf8
+        $suite = Get-Content -LiteralPath (Join-Path $root 'tests\Core.Tests.ps1') -Raw -Encoding utf8
+        $actual = @([regex]::Matches($suite,'(?m)^\s{4}It\s')).Count
+        Assert-WplTest ($actual -gt 0) 'No It blocks were detected in the suite.'
+        $claimed = @([regex]::Matches($readme,'(?:(\d+)\s*tests|\ud14c\uc2a4\ud2b8\s*(\d+)\uac1c)') | ForEach-Object {
+            if ($_.Groups[1].Success) { [int]$_.Groups[1].Value } else { [int]$_.Groups[2].Value }
+        })
+        Assert-WplTest ($claimed.Count -gt 0) 'The README does not state a test count in either language.'
+        $wrong = @($claimed | Where-Object { $_ -ne $actual } | Sort-Object -Unique)
+        Assert-WplTest ($wrong.Count -eq 0) "README claims test count $($wrong -join ', ') but the suite has $actual."
+    }
 }
