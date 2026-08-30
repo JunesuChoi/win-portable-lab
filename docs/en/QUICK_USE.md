@@ -1,4 +1,4 @@
-# Quick tool reference
+﻿# Quick tool reference
 
 What each tool observes, when to reach for it, and what a healthy result looks like. Option-level detail lives in the per-tool documents under `docs/en/tools/`.
 
@@ -69,6 +69,36 @@ Select a tool in the GUI list, or open it with the command below. The command on
 Risky tools prompt for confirmation in the GUI and require `-AcknowledgeRisk` on the command line.
 
 Already own a program? Point the console at it with [your own tool paths](USER_TOOL_PATHS.md).
+
+## Hardware card detail
+
+Click the OS, CPU, GPU or RAM/DISK card at the top to open a detail window with the fields the summary cannot fit.
+
+| Card | Detail shown |
+|---|---|
+| OS | Edition, version, build, architecture, install date, last boot, manufacturer, model, hypervisor state |
+| CPU | Processor, cores and threads, base clock, socket, virtualization firmware, mainboard vendor, model and revision, BIOS version and release date |
+| GPU | Per-adapter vendor, driver version and date, video mode, reported VRAM |
+| RAM / DISK | Per-slot capacity, vendor, part number, configured and rated clock, voltage; per-disk interface, size, firmware, status |
+
+Detail is collected once with the system snapshot, so reopening a card never re-queries the system.
+
+## BIOS and graphics driver update advisories
+
+When a release date looks old, the detail window adds an advisory.
+
+| Target | Threshold | Shown in |
+|---|---|---|
+| BIOS | 18 months since release (36 months or more raises it to caution) | CPU card detail |
+| Graphics driver | 12 months since release (24 months or more raises it to caution) | GPU card detail |
+
+Each advisory carries a button that opens the vendor support page. MSI, ASUS, GIGABYTE, ASRock, BIOSTAR, Dell, HP, Lenovo, Acer, Samsung and Intel mainboards are recognised, along with NVIDIA, AMD and Intel graphics.
+
+**An important limit.** This tool does not query vendor catalogues. An advisory therefore does not mean a newer release exists; it means this is a reasonable moment to check. Confirm the current version on the vendor page yourself.
+
+Nothing is downloaded or installed automatically. A page opens in the default browser only when the link button is pressed.
+
+A failed BIOS update can leave a mainboard unable to boot. Follow the vendor's own instructions and do not proceed where power loss is a risk. If replacing a graphics driver keeps failing, see the [DDU guide](tools/DDU.md).
 
 ## Per-tool guides
 

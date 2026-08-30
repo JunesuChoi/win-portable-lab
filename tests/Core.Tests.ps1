@@ -263,6 +263,38 @@ Describe 'GUI snapshot and launcher behavior contract' {
         Assert-WplTest ($source -match 'finally \{\s*\$ui\.SafeLaunchButton\.IsEnabled = \$true') 'Safe launch button is not restored in finally.'
     }
 
+    It 'opens hardware detail from every summary card' {
+        # Each card must be an invokable button wired to its own detail section,
+        # otherwise a click silently does nothing.
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        foreach ($card in @('OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')) {
+            Assert-WplTest ($source -match ('x:Name="{0}"' -f $card)) "The $card element is missing from the XAML."
+            Assert-WplTest ($source -match ('\$ui\.{0}\.Add_Click' -f $card)) "The $card element has no click handler."
+            Assert-WplTest ($source -match ('''{0}''' -f $card)) "The $card element is not resolved by name."
+        }
+        foreach ($section in @('os','cpu','gpu','memory')) {
+            Assert-WplTest ($source -match ("GuiHardwareDetail\['{0}'\]" -f $section)) "No detail payload is built for the $section section."
+        }
+        Assert-WplTest ($source -match 'function Show-GuiHardwareDetail') 'The detail window function is missing.'
+    }
+
+    It 'advises firmware and driver updates without claiming a newer release exists' {
+        # The console has no vendor catalogue, so advisories must only prompt a
+        # check and must never auto-download anything.
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($source -match 'function Set-GuiUpdateAdvice') 'The update advisory builder is missing.'
+        Assert-WplTest ($source -match 'function Get-WplVendorSupportUrl') 'The vendor link resolver is missing.'
+        Assert-WplTest ($source -match 'AdviceBiosAge') 'No BIOS age advisory text is used.'
+        Assert-WplTest ($source -match 'AdviceGpuDriverAge') 'No graphics driver age advisory text is used.'
+        # Vendor destinations must be official https endpoints.
+        $urls = @([regex]::Matches($source,"return '(https?://[^']+)'") | ForEach-Object { $_.Groups[1].Value })
+        Assert-WplTest ($urls.Count -ge 6) "Too few vendor support links are defined: $($urls.Count)"
+        $insecure = @($urls | Where-Object { $_ -notmatch '^https://' })
+        Assert-WplTest ($insecure.Count -eq 0) "Vendor links must use https: $($insecure -join ', ')"
+        # A link is opened only from an explicit click, never during analysis.
+        Assert-WplTest ($source -match 'GuiOpenVendorPage') 'The vendor page button text is missing.'
+    }
+
     It 'wires task, list, detail, and scrolling surfaces explicitly' {
         $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
         foreach ($pattern in @('x:Name="SidebarScroll"','ScrollViewer\.VerticalScrollBarVisibility="Auto"','x:Name="DetailScroll"','Add_PreviewMouseWheel','x:Name="SelectedToolText"','x:Name="FilterAllButton"','x:Name="SnapshotText"')) {

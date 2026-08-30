@@ -131,6 +131,17 @@ function Get-WplText {
         GuiLaunchSelected=@{ko='선택 프로그램 실행';en='Launch selected tool'}
         GuiOpenGuide=@{ko='권장 안내서 열기';en='Open recommendation guide'}
         GuiOpenToolGuide=@{ko='선택 도구 사용법';en='Selected tool guide'}
+        GuiDetailTitleOs=@{ko='운영체제 상세 정보';en='Operating system detail'}
+        GuiDetailTitleCpu=@{ko='CPU · 메인보드 상세 정보';en='CPU and mainboard detail'}
+        GuiDetailTitleGpu=@{ko='그래픽 상세 정보';en='Graphics detail'}
+        GuiDetailTitleMemory=@{ko='메모리 · 저장장치 상세 정보';en='Memory and storage detail'}
+        GuiDetailClose=@{ko='닫기';en='Close'}
+        GuiDetailUnavailable=@{ko='아직 수집된 상세 정보가 없습니다. 시스템 정보 새로고침을 먼저 실행하세요.';en='No detail has been collected yet. Run the system information refresh first.'}
+        GuiOpenVendorPage=@{ko='제조사 지원 페이지 열기';en='Open vendor support page'}
+        AdviceBiosHeading=@{ko='BIOS 업데이트 확인 권장';en='Check for a BIOS update'}
+        AdviceGpuHeading=@{ko='그래픽 드라이버 업데이트 확인 권장';en='Check for a graphics driver update'}
+        AdviceBiosAge=@{ko='설치된 BIOS {0} (출시 {1})은 약 {2}개월 전 버전입니다. 제조사 페이지에서 더 새 버전이 있는지 확인하세요. 이 도구는 최신 버전 목록을 조회하지 않습니다.';en='The installed BIOS {0} (released {1}) is about {2} months old. Check the vendor page for a newer release. This tool does not query vendor catalogues.'}
+        AdviceGpuDriverAge=@{ko='드라이버 {0} (출시 {1})은 약 {2}개월 전 버전입니다. 제조사 페이지에서 더 새 버전이 있는지 확인하세요. 이 도구는 최신 버전 목록을 조회하지 않습니다.';en='Driver {0} (released {1}) is about {2} months old. Check the vendor page for a newer release. This tool does not query vendor catalogues.'}
         UserPathNone=@{ko='등록된 사용자 경로가 없습니다. 파일 위치: {0}';en='No user-declared paths are registered. File location: {0}'}
         UserPathIdRequired=@{ko='도구 실행 ID가 필요합니다. -Id 값을 지정하세요.';en='A launcher id is required. Provide -Id.'}
         UserPathPathRequired=@{ko='실행 파일 경로가 필요합니다. -Path 값을 지정하세요.';en='An executable path is required. Provide -Path.'}

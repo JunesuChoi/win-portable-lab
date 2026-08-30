@@ -459,6 +459,28 @@ function Show-WplGui {
         </Trigger>
       </Style.Triggers>
     </Style>
+    <!-- Hardware summary cards are buttons so a click can open full detail,
+         while the template keeps them looking like flat panels. -->
+    <Style x:Key="HardwareCard" TargetType="Button">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="VerticalContentAlignment" Value="Top"/>
+      <Setter Property="Padding" Value="13,11"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="CardSurface" Background="{DynamicResource Surface1}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+              <ContentPresenter/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="CardSurface" Property="Background" Value="{DynamicResource Surface2}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     <Style TargetType="DataGridColumnHeader">
       <Setter Property="Background" Value="{DynamicResource Canvas}"/>
       <Setter Property="Foreground" Value="{DynamicResource InkSubtle}"/>
@@ -514,18 +536,42 @@ function Show-WplGui {
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.8*"/><ColumnDefinition Width="1.6*"/><ColumnDefinition Width="1.1*"/>
       </Grid.ColumnDefinitions>
-      <Border Grid.Column="0" Background="{DynamicResource Surface1}" CornerRadius="8" Padding="13,11">
-        <StackPanel><TextBlock Text="OS" Foreground="{DynamicResource InkTertiary}" FontSize="10" FontWeight="Medium"/><TextBlock x:Name="OsText" Foreground="{DynamicResource InkMuted}" Margin="0,5,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="16"/></StackPanel>
-      </Border>
-      <Border Grid.Column="1" Margin="10,0,0,0" Background="{DynamicResource Surface1}" CornerRadius="8" Padding="13,11">
-        <StackPanel><TextBlock Text="CPU" Foreground="{DynamicResource InkTertiary}" FontSize="10" FontWeight="Medium"/><TextBlock x:Name="CpuText" Foreground="{DynamicResource InkMuted}" Margin="0,5,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="16"/></StackPanel>
-      </Border>
-      <Border Grid.Column="2" Margin="10,0,0,0" Background="{DynamicResource Surface1}" CornerRadius="8" Padding="13,11">
-        <StackPanel><TextBlock Text="GPU" Foreground="{DynamicResource InkTertiary}" FontSize="10" FontWeight="Medium"/><TextBlock x:Name="GpuText" Foreground="{DynamicResource InkMuted}" Margin="0,5,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="16"/></StackPanel>
-      </Border>
-      <Border Grid.Column="3" Margin="10,0,0,0" Background="{DynamicResource Surface1}" CornerRadius="8" Padding="13,11">
-        <StackPanel><TextBlock Text="RAM / DISK" Foreground="{DynamicResource InkTertiary}" FontSize="10" FontWeight="Medium"/><TextBlock x:Name="MemoryText" Foreground="{DynamicResource InkMuted}" Margin="0,5,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="16"/></StackPanel>
-      </Border>
+      <Button x:Name="OsCardButton" Grid.Column="0" Style="{StaticResource HardwareCard}">
+        <StackPanel>
+          <Grid>
+            <TextBlock Text="OS" Foreground="{DynamicResource InkTertiary}" FontSize="10" FontWeight="Medium"/>
+            <TextBlock Text="&#x2039;&#x203A;" Foreground="{DynamicResource InkTertiary}" FontSize="10" HorizontalAlignment="Right"/>
+          </Grid>
+          <TextBlock x:Name="OsText" Foreground="{DynamicResource InkMuted}" Margin="0,5,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="16"/>
+        </StackPanel>
+      </Button>
+      <Button x:Name="CpuCardButton" Grid.Column="1" Margin="10,0,0,0" Style="{StaticResource HardwareCard}">
+        <StackPanel>
+          <Grid>
+            <TextBlock Text="CPU" Foreground="{DynamicResource InkTertiary}" FontSize="10" FontWeight="Medium"/>
+            <TextBlock Text="&#x2039;&#x203A;" Foreground="{DynamicResource InkTertiary}" FontSize="10" HorizontalAlignment="Right"/>
+          </Grid>
+          <TextBlock x:Name="CpuText" Foreground="{DynamicResource InkMuted}" Margin="0,5,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="16"/>
+        </StackPanel>
+      </Button>
+      <Button x:Name="GpuCardButton" Grid.Column="2" Margin="10,0,0,0" Style="{StaticResource HardwareCard}">
+        <StackPanel>
+          <Grid>
+            <TextBlock Text="GPU" Foreground="{DynamicResource InkTertiary}" FontSize="10" FontWeight="Medium"/>
+            <TextBlock Text="&#x2039;&#x203A;" Foreground="{DynamicResource InkTertiary}" FontSize="10" HorizontalAlignment="Right"/>
+          </Grid>
+          <TextBlock x:Name="GpuText" Foreground="{DynamicResource InkMuted}" Margin="0,5,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="16"/>
+        </StackPanel>
+      </Button>
+      <Button x:Name="MemoryCardButton" Grid.Column="3" Margin="10,0,0,0" Style="{StaticResource HardwareCard}">
+        <StackPanel>
+          <Grid>
+            <TextBlock Text="RAM / DISK" Foreground="{DynamicResource InkTertiary}" FontSize="10" FontWeight="Medium"/>
+            <TextBlock Text="&#x2039;&#x203A;" Foreground="{DynamicResource InkTertiary}" FontSize="10" HorizontalAlignment="Right"/>
+          </Grid>
+          <TextBlock x:Name="MemoryText" Foreground="{DynamicResource InkMuted}" Margin="0,5,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="16"/>
+        </StackPanel>
+      </Button>
     </Grid>
 
     <Grid Grid.Row="2">
@@ -639,7 +685,7 @@ function Show-WplGui {
 
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)
-    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText')
+    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
     $ui = @{}
     foreach ($name in $names) { $ui[$name] = $window.FindName($name) }
 
@@ -654,6 +700,10 @@ function Show-WplGui {
     $script:GuiDiskCount = $null
     $script:GuiMemoryHardwareText = $null
     $script:GuiMemoryToolTip = $null
+    # Populated with the hardware snapshot; a card clicked before then reports
+    # that detail is not available yet instead of throwing.
+    $script:GuiHardwareDetail = @{}
+    $script:GuiUpdateAdvice = @()
     $script:GuiCurrentProfile = $Profile
     $script:GuiCurrentFilter = 'all'
     $script:GuiSnapshotCapturedAt = $null
@@ -814,6 +864,165 @@ function Show-WplGui {
         }
     }
 
+    # Vendor support pages for firmware and graphics drivers. Only official
+    # first-party destinations are listed; nothing is downloaded automatically.
+    function Get-WplVendorSupportUrl([string]$Kind,[string]$Vendor) {
+        $needle = ([string]$Vendor).ToLowerInvariant()
+        if ($Kind -eq 'gpu') {
+            if ($needle -match 'nvidia') { return 'https://www.nvidia.com/Download/index.aspx' }
+            if ($needle -match 'amd|ati|radeon') { return 'https://www.amd.com/en/support' }
+            if ($needle -match 'intel') { return 'https://www.intel.com/content/www/us/en/download-center/home.html' }
+            return $null
+        }
+        if ($needle -match 'micro-star|msi') { return 'https://www.msi.com/support' }
+        if ($needle -match 'asus|asustek') { return 'https://www.asus.com/support/' }
+        if ($needle -match 'gigabyte') { return 'https://www.gigabyte.com/Support' }
+        if ($needle -match 'asrock') { return 'https://www.asrock.com/support/index.asp' }
+        if ($needle -match 'biostar') { return 'https://www.biostar.com.tw/app/en/support/download.php' }
+        if ($needle -match 'dell|alienware') { return 'https://www.dell.com/support/home' }
+        if ($needle -match 'hewlett|hp ') { return 'https://support.hp.com/us-en/drivers' }
+        if ($needle -match 'lenovo') { return 'https://support.lenovo.com/us/en/' }
+        if ($needle -match 'acer') { return 'https://www.acer.com/us-en/support' }
+        if ($needle -match 'samsung') { return 'https://www.samsung.com/us/support/downloads/' }
+        if ($needle -match 'intel') { return 'https://www.intel.com/content/www/us/en/support.html' }
+        return $null
+    }
+
+    # An advisory is a prompt to check the vendor page, never a claim that a
+    # newer release exists. This tool cannot see vendor catalogues offline.
+    function Set-GuiUpdateAdvice($Bios,$Board,$Graphics) {
+        $advice = [Collections.Generic.List[object]]::new()
+        $now = Get-Date
+
+        $biosDate = ConvertTo-LocalDate $Bios.ReleaseDate
+        if ($biosDate) {
+            $ageMonths = [math]::Round(($now - $biosDate).TotalDays / 30.44,0)
+            if ($ageMonths -ge 18) {
+                $vendor = if ($Board) { [string]$Board.Manufacturer } else { [string]$Bios.Manufacturer }
+                $advice.Add([pscustomobject]@{
+                    Kind = 'bios'
+                    Severity = if ($ageMonths -ge 36) { 'caution' } else { 'info' }
+                    Subject = (@($vendor,[string]$Board.Product) | Where-Object { $_ }) -join ' '
+                    Detail = Get-WplText -Key AdviceBiosAge -Language $script:GuiLanguage -ArgumentList @([string]$Bios.SMBIOSBIOSVersion,$biosDate.ToString('yyyy-MM-dd'),$ageMonths)
+                    Url = Get-WplVendorSupportUrl 'bios' $vendor
+                })
+            }
+        }
+
+        foreach ($adapter in @($Graphics)) {
+            $driverDate = ConvertTo-LocalDate $adapter.DriverDate
+            if (-not $driverDate) { continue }
+            $ageMonths = [math]::Round(($now - $driverDate).TotalDays / 30.44,0)
+            if ($ageMonths -lt 12) { continue }
+            $advice.Add([pscustomobject]@{
+                Kind = 'gpu'
+                Severity = if ($ageMonths -ge 24) { 'caution' } else { 'info' }
+                Subject = [string]$adapter.Name
+                Detail = Get-WplText -Key AdviceGpuDriverAge -Language $script:GuiLanguage -ArgumentList @([string]$adapter.DriverVersion,$driverDate.ToString('yyyy-MM-dd'),$ageMonths)
+                Url = Get-WplVendorSupportUrl 'gpu' ([string]$adapter.AdapterCompatibility)
+            })
+        }
+
+        $script:GuiUpdateAdvice = $advice
+    }
+
+    # Detail window for one hardware card. Read-only text plus any vendor links
+    # that apply to the card's subject.
+    function Show-GuiHardwareDetail([string]$Section,[string]$Title) {
+        $lines = if ($script:GuiHardwareDetail -and $script:GuiHardwareDetail.ContainsKey($Section)) { @($script:GuiHardwareDetail[$Section]) } else { @() }
+        if (-not $lines.Count) {
+            [System.Windows.MessageBox]::Show((Get-WplText -Key GuiDetailUnavailable -Language $script:GuiLanguage),$window.Title) | Out-Null
+            return
+        }
+        $relevant = @($script:GuiUpdateAdvice | Where-Object {
+            ($Section -eq 'cpu' -and $_.Kind -eq 'bios') -or ($Section -eq 'gpu' -and $_.Kind -eq 'gpu')
+        })
+
+        [xml]$detailXaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="560" Height="620" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        FontFamily="Segoe UI" SizeToContent="Manual">
+  <Grid Margin="18">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <TextBlock x:Name="DetailTitle" Grid.Row="0" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,12"/>
+    <Border x:Name="DetailSurface" Grid.Row="1" CornerRadius="8" Padding="12">
+      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+        <TextBlock x:Name="DetailBody" TextWrapping="NoWrap" FontFamily="Consolas" FontSize="12" LineHeight="18"/>
+      </ScrollViewer>
+    </Border>
+    <StackPanel x:Name="AdvicePanel" Grid.Row="2" Margin="0,12,0,0"/>
+    <Button x:Name="DetailCloseButton" Grid.Row="3" Height="30" MinWidth="110" HorizontalAlignment="Right" Margin="0,12,0,0"/>
+  </Grid>
+</Window>
+'@
+        $detailWindow = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $detailXaml))
+        $detailWindow.Owner = $window
+        $detailWindow.Title = $Title
+        $detailWindow.Background = $window.TryFindResource('Canvas')
+        $detailWindow.Foreground = $window.TryFindResource('Ink')
+        $body = $detailWindow.FindName('DetailBody')
+        $body.Foreground = $window.TryFindResource('InkMuted')
+        $body.Text = ($lines -join [Environment]::NewLine)
+        $titleBlock = $detailWindow.FindName('DetailTitle')
+        $titleBlock.Text = $Title
+        $titleBlock.Foreground = $window.TryFindResource('Ink')
+        $detailWindow.FindName('DetailSurface').Background = $window.TryFindResource('Surface1')
+        $close = $detailWindow.FindName('DetailCloseButton')
+        $close.Content = Get-WplText -Key GuiDetailClose -Language $script:GuiLanguage
+        $close.Style = $window.TryFindResource('ActionButton')
+        $close.Add_Click({ $detailWindow.Close() })
+
+        $advicePanel = $detailWindow.FindName('AdvicePanel')
+        foreach ($item in $relevant) {
+            $card = New-Object Windows.Controls.Border
+            $card.Background = $window.TryFindResource('Surface2')
+            $card.CornerRadius = New-Object Windows.CornerRadius 8
+            $card.Padding = New-Object Windows.Thickness 12
+            $card.Margin = New-Object Windows.Thickness 0,0,0,8
+            $card.BorderThickness = New-Object Windows.Thickness 2,0,0,0
+            $card.BorderBrush = $window.TryFindResource($(if ($item.Severity -eq 'caution') { 'Caution' } else { 'Accent' }))
+            $stack = New-Object Windows.Controls.StackPanel
+            $heading = New-Object Windows.Controls.TextBlock
+            $heading.Text = Get-WplText -Key $(if ($item.Kind -eq 'bios') { 'AdviceBiosHeading' } else { 'AdviceGpuHeading' }) -Language $script:GuiLanguage
+            $heading.FontWeight = 'SemiBold'
+            $heading.FontSize = 12
+            $heading.Foreground = $window.TryFindResource('Ink')
+            $stack.Children.Add($heading) | Out-Null
+            $detailText = New-Object Windows.Controls.TextBlock
+            $detailText.Text = $item.Subject + [Environment]::NewLine + $item.Detail
+            $detailText.TextWrapping = 'Wrap'
+            $detailText.FontSize = 11
+            $detailText.LineHeight = 17
+            $detailText.Margin = New-Object Windows.Thickness 0,4,0,0
+            $detailText.Foreground = $window.TryFindResource('InkSubtle')
+            $stack.Children.Add($detailText) | Out-Null
+            if ($item.Url) {
+                $linkButton = New-Object Windows.Controls.Button
+                $linkButton.Content = Get-WplText -Key GuiOpenVendorPage -Language $script:GuiLanguage
+                $linkButton.Style = $window.TryFindResource('ActionButton')
+                $linkButton.HorizontalAlignment = 'Left'
+                $linkButton.Margin = New-Object Windows.Thickness 0,8,0,0
+                $linkButton.Padding = New-Object Windows.Thickness 10,4
+                $linkButton.FontSize = 11
+                $linkButton.Tag = $item.Url
+                $linkButton.ToolTip = $item.Url
+                $linkButton.Add_Click({
+                    param($sender,$eventArgs)
+                    try { Start-Process ([string]$sender.Tag) }
+                    catch { [System.Windows.MessageBox]::Show($_.Exception.Message,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null }
+                })
+                $stack.Children.Add($linkButton) | Out-Null
+            }
+            $card.Child = $stack
+            $advicePanel.Children.Add($card) | Out-Null
+        }
+
+        [void]$detailWindow.ShowDialog()
+    }
+
     function Set-GuiAnalysisControls([bool]$Enabled) {
         foreach ($button in @($ui.QuickButton,$ui.AllButton,$ui.StorageButton,$ui.MemoryButton,$ui.GpuButton,$ui.RefreshButton)) { $button.IsEnabled = $Enabled }
         $ui.AnalysisProgressBar.Visibility = if ($Enabled) { [Windows.Visibility]::Collapsed } else { [Windows.Visibility]::Visible }
@@ -930,6 +1139,110 @@ function Show-WplGui {
         $ui.MemoryText.Text = "$($script:GuiMemoryHardwareText)`n$(Get-WplText -Key GuiStorageDevices -Language $script:GuiLanguage -ArgumentList @($diskCount))"
         $ui.MemoryText.ToolTip = $script:GuiMemoryToolTip
     }else{$ui.MemoryText.Text = "Detection unavailable`n$(Get-WplText -Key GuiStorageDevices -Language $script:GuiLanguage -ArgumentList @($diskCount))"}
+
+    # Detail payloads for the clickable hardware cards. Collected once with the
+    # snapshot so opening a card never re-queries CIM.
+    $script:GuiHardwareDetail = @{}
+    $script:GuiHardwareAdvice = @{}
+
+    function Add-DetailLine([Collections.Generic.List[string]]$Target,[string]$Label,$Value) {
+        $text = [string]$value
+        if ([string]::IsNullOrWhiteSpace($text)) { return }
+        $Target.Add(('{0}: {1}' -f $Label,$text.Trim()))
+    }
+
+    function ConvertTo-LocalDate($Value) {
+        if ($null -eq $Value) { return $null }
+        if ($Value -is [datetime]) { return $Value }
+        try { return [Management.ManagementDateTimeConverter]::ToDateTime([string]$Value) } catch { }
+        try { return [datetime]::Parse([string]$Value) } catch { }
+        return $null
+    }
+
+    # OS
+    $osDetail = [Collections.Generic.List[string]]::new()
+    if ($os) {
+        Add-DetailLine $osDetail 'Edition' $os.Caption
+        Add-DetailLine $osDetail 'Version' $os.Version
+        Add-DetailLine $osDetail 'Build' $os.BuildNumber
+        Add-DetailLine $osDetail 'Architecture' $os.OSArchitecture
+        $installed = ConvertTo-LocalDate $os.InstallDate
+        if ($installed) { Add-DetailLine $osDetail 'Installed' $installed.ToString('yyyy-MM-dd') }
+        $booted = ConvertTo-LocalDate $os.LastBootUpTime
+        if ($booted) { Add-DetailLine $osDetail 'Last boot' $booted.ToString('yyyy-MM-dd HH:mm') }
+        Add-DetailLine $osDetail 'System drive' $os.SystemDrive
+        Add-DetailLine $osDetail 'Windows directory' $os.WindowsDirectory
+        Add-DetailLine $osDetail 'Locale' $os.Locale
+    }
+    if ($system) {
+        Add-DetailLine $osDetail 'Computer' $system.Manufacturer
+        Add-DetailLine $osDetail 'Model' $system.Model
+        Add-DetailLine $osDetail 'System type' $system.SystemType
+        Add-DetailLine $osDetail 'Hypervisor present' $system.HypervisorPresent
+    }
+    $script:GuiHardwareDetail['os'] = $osDetail
+
+    # CPU and mainboard
+    $cpuDetail = [Collections.Generic.List[string]]::new()
+    if ($cpu) {
+        Add-DetailLine $cpuDetail 'Processor' $cpu.Name
+        Add-DetailLine $cpuDetail 'Vendor' $cpu.Manufacturer
+        Add-DetailLine $cpuDetail 'Cores' $cpu.NumberOfCores
+        Add-DetailLine $cpuDetail 'Logical processors' $cpu.NumberOfLogicalProcessors
+        Add-DetailLine $cpuDetail 'Base clock (MHz)' $cpu.MaxClockSpeed
+        Add-DetailLine $cpuDetail 'Socket' $cpu.SocketDesignation
+        Add-DetailLine $cpuDetail 'Virtualization firmware' $cpu.VirtualizationFirmwareEnabled
+    }
+    if ($board) {
+        Add-DetailLine $cpuDetail 'Mainboard vendor' $board.Manufacturer
+        Add-DetailLine $cpuDetail 'Mainboard model' $board.Product
+        Add-DetailLine $cpuDetail 'Mainboard revision' $board.Version
+    }
+    if ($bios) {
+        Add-DetailLine $cpuDetail 'BIOS version' $bios.SMBIOSBIOSVersion
+        Add-DetailLine $cpuDetail 'BIOS vendor' $bios.Manufacturer
+        $biosDate = ConvertTo-LocalDate $bios.ReleaseDate
+        if ($biosDate) { Add-DetailLine $cpuDetail 'BIOS release' $biosDate.ToString('yyyy-MM-dd') }
+    }
+    $script:GuiHardwareDetail['cpu'] = $cpuDetail
+
+    # GPU
+    $gpuDetail = [Collections.Generic.List[string]]::new()
+    foreach ($adapter in $gpu) {
+        Add-DetailLine $gpuDetail 'Adapter' $adapter.Name
+        Add-DetailLine $gpuDetail '  Vendor' $adapter.AdapterCompatibility
+        Add-DetailLine $gpuDetail '  Driver version' $adapter.DriverVersion
+        $driverDate = ConvertTo-LocalDate $adapter.DriverDate
+        if ($driverDate) { Add-DetailLine $gpuDetail '  Driver date' $driverDate.ToString('yyyy-MM-dd') }
+        Add-DetailLine $gpuDetail '  Video mode' $adapter.VideoModeDescription
+        if ($adapter.AdapterRAM -and [int64]$adapter.AdapterRAM -gt 0) {
+            Add-DetailLine $gpuDetail '  Reported VRAM' ("{0} MB" -f [math]::Round([int64]$adapter.AdapterRAM / 1MB,0))
+        }
+    }
+    $script:GuiHardwareDetail['gpu'] = $gpuDetail
+
+    # Memory and storage
+    $memoryDetail = [Collections.Generic.List[string]]::new()
+    if ($script:GuiMemoryGb) { Add-DetailLine $memoryDetail 'Total' ("{0} GB" -f $script:GuiMemoryGb) }
+    foreach ($module in $memoryModules) {
+        $memoryDetail.Add(('Slot {0} [{1}]' -f $module.DeviceLocator,$module.BankLabel))
+        Add-DetailLine $memoryDetail '  Capacity' ("{0} GB" -f [math]::Round($module.Capacity / 1GB,0))
+        Add-DetailLine $memoryDetail '  Vendor' $module.Manufacturer
+        Add-DetailLine $memoryDetail '  Part number' $module.PartNumber
+        Add-DetailLine $memoryDetail '  Configured' ("{0} MT/s" -f $module.ConfiguredClockSpeed)
+        Add-DetailLine $memoryDetail '  Rated' ("{0} MT/s" -f $module.Speed)
+        Add-DetailLine $memoryDetail '  Voltage' ("{0} mV" -f $module.ConfiguredVoltage)
+    }
+    foreach ($disk in $disks) {
+        $memoryDetail.Add(('Disk {0}' -f ([string]$disk.Model).Trim()))
+        Add-DetailLine $memoryDetail '  Interface' $disk.InterfaceType
+        if ($disk.Size) { Add-DetailLine $memoryDetail '  Size' ("{0} GB" -f [math]::Round([int64]$disk.Size / 1GB,1)) }
+        Add-DetailLine $memoryDetail '  Firmware' $disk.FirmwareRevision
+        Add-DetailLine $memoryDetail '  Status' $disk.Status
+    }
+    $script:GuiHardwareDetail['memory'] = $memoryDetail
+
+    Set-GuiUpdateAdvice -Bios $bios -Board $board -Graphics $gpu
 
     $quickLogPath = Join-Path $Root 'logs\gui-hardware-latest.log'
     New-Item -ItemType Directory -Path (Split-Path -Parent $quickLogPath) -Force | Out-Null
@@ -1082,6 +1395,10 @@ function Show-WplGui {
     $ui.MemoryButton.Add_Click({ Set-GuiProfileFromSnapshot 'memory' })
     $ui.GpuButton.Add_Click({ Set-GuiProfileFromSnapshot 'gpu' })
     $ui.RefreshButton.Add_Click({ Start-GuiAnalysis $script:GuiCurrentProfile })
+    $ui.OsCardButton.Add_Click({ Show-GuiHardwareDetail 'os' (Get-WplText -Key GuiDetailTitleOs -Language $script:GuiLanguage) })
+    $ui.CpuCardButton.Add_Click({ Show-GuiHardwareDetail 'cpu' (Get-WplText -Key GuiDetailTitleCpu -Language $script:GuiLanguage) })
+    $ui.GpuCardButton.Add_Click({ Show-GuiHardwareDetail 'gpu' (Get-WplText -Key GuiDetailTitleGpu -Language $script:GuiLanguage) })
+    $ui.MemoryCardButton.Add_Click({ Show-GuiHardwareDetail 'memory' (Get-WplText -Key GuiDetailTitleMemory -Language $script:GuiLanguage) })
     $ui.LanguageButton.Add_Click({ $script:GuiLanguage = if ($script:GuiLanguage -eq 'ko') { 'en' } else { 'ko' }; Set-GuiText })
     $ui.LaunchButton.Add_Click({
         $selected = $ui.ProgramGrid.SelectedItem
