@@ -250,8 +250,13 @@ Describe 'GUI snapshot and launcher behavior contract' {
     It 'passes quoted script paths as one native command line' {
         $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
         $session = Get-Content -LiteralPath (Join-Path $root 'scripts\Start-WplToolSession.ps1') -Raw
-        Assert-WplTest ($gui -match '\$sessionArguments = ''-NoLogo .+ -File "\{0\}" -Root "\{1\}"') 'Session command line does not quote script/root paths.'
-        Assert-WplTest ($gui -notmatch '\$sessionScript = ''"\{0\}"''') 'Script path is still stored as a literal quoted array element.'
+        # The session command line must be produced by the shared encoder. Building
+        # it with -f interpolation let an unquoted launcher id smuggle extra
+        # parameters into an elevated powershell.exe invocation.
+        Assert-WplTest ($gui -match '\$sessionArguments = ConvertTo-WplWindowsCommandLine -ArgumentList') 'Session command line is not produced by the shared argument encoder.'
+        Assert-WplTest ($gui -notmatch '(?m)^\s*\$sessionArguments\s*=\s*''-NoLogo') 'Session command line is still hand-built from a format string.'
+        Assert-WplTest ($gui -notmatch '\-LauncherId \{2\}') 'The launcher id is still interpolated into the command line unquoted.'
+        Assert-WplTest ($gui -match 'WinPortableLab\.Process\.psm1') 'The GUI does not import the process module that owns argument encoding.'
         Assert-WplTest ($session -match '\$launchers = @\(foreach \(\$item in \$launcherDocument\) \{ \$item \}\)') 'PS 5.1 JSON array normalization is missing.'
     }
 
@@ -591,5 +596,50 @@ Describe 'Network driver recovery contract' {
         # placeholders, so they must survive the cleanup.
         $toolDocs = @($tracked | Where-Object { $_ -match '^tools/\d{2}-[^/]+/README\.md$' })
         Assert-WplTest ($toolDocs.Count -eq 9) "Expected 9 tools folder guides; found $($toolDocs.Count)."
+    }
+}
+
+Describe 'Elevated launch integrity contract' {
+    It 'requires acknowledgement before a user-declared path backs a launcher' {
+        # config/user-tool-paths.json is per-machine, unsigned, and lives on the
+        # removable medium. Without this gate a read-only tool repointed by that
+        # file would start elevated with no prompt at all.
+        $module = Get-Content -LiteralPath (Join-Path $root 'src\WinPortableLab.Core.psm1') -Raw
+        Assert-WplTest ($module -match 'function Get-WplToolOverrideTrust') 'Get-WplToolOverrideTrust is missing.'
+        Assert-WplTest ($module -match 'Export-ModuleMember[^\r\n]*Get-WplToolOverrideTrust') 'Get-WplToolOverrideTrust is not exported.'
+        $trust = [regex]::Match($module,'(?s)function Get-WplToolOverrideTrust.*?\n\}')
+        Assert-WplTest ($trust.Success) 'Get-WplToolOverrideTrust body could not be located.'
+        Assert-WplTest ($trust.Value -match 'InsideToolsRoot') 'The trust record does not report tools-root containment.'
+        Assert-WplTest ($trust.Value -match 'Get-AuthenticodeSignature') 'The trust record does not inspect the signature.'
+        $cli = Get-Content -LiteralPath (Join-Path $root 'scripts\Open-PortableTool.ps1') -Raw
+        Assert-WplTest ($cli -match 'UntrustedOverrideBlocked') 'The CLI launcher does not gate an untrusted override.'
+        $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest (@([regex]::Matches($gui,'GuiOverrideConfirm')).Count -ge 2) 'Both GUI launch paths must confirm an untrusted override.'
+    }
+
+    It 'refuses an unpinned or mismatched download instead of skipping the check' {
+        # The comparison used to be conditional on the manifest declaring a hash,
+        # so a definition without sha256 downloaded and extracted unverified.
+        $installer = Get-Content -LiteralPath (Join-Path $root 'scripts\Install-PortableTools.ps1') -Raw
+        Assert-WplTest ($installer -notmatch '\$package\.source\.sha256 -and \$hash -ne') 'The hash check is still skipped when no pin is declared.'
+        Assert-WplTest ($installer -match "expected -notmatch '\^\[0-9a-fA-F\]\{64\}\$'") 'The installer does not require a 64-hex pin.'
+        $verify = [regex]::Match($installer,'(?s)\$expected = \[string\]\$package\.source\.sha256.*?\n    \}')
+        Assert-WplTest ($verify.Success) 'The verification block could not be located.'
+        Assert-WplTest ($verify.Value -match 'Remove-Item') 'A rejected archive is left on disk for a later unverified run.'
+    }
+
+    It 'keeps executable resolution and the safe-launch rule in one place' {
+        # The GUI used to reimplement override reading and pattern matching, and
+        # the copies had drifted on both file-type filtering and the path root.
+        $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($gui -notmatch 'function Get-WplUserToolPathMap') 'The duplicated override reader is back.'
+        Assert-WplTest ($gui -match 'function Get-WplUserToolPath[^\r\n]*\r?\n[^}]*Get-WplToolOverride -Root') 'The GUI override lookup no longer delegates to the module.'
+        Assert-WplTest ($gui -match 'function Get-WplSafeLaunchIds') 'The safe-launch rule is not centralised.'
+        # Count the launchMode clause: it is unique to the safe-launch rule.
+        $copies = @([regex]::Matches($gui,"launchMode -eq 'gui' -and")).Count
+        Assert-WplTest ($copies -eq 1) "The safe-launch predicate is written $copies times; it must exist once."
+        $inventory = Get-Content -LiteralPath (Join-Path $root 'scripts\Invoke-Inventory.ps1') -Raw
+        $pnp = @([regex]::Matches($inventory,'\$inventory\.PnpProblems \| ConvertTo-Html')).Count
+        Assert-WplTest ($pnp -eq 1) "The PnP table is rendered $pnp times in the report; it must render once."
     }
 }

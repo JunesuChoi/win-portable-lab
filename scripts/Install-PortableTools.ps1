@@ -92,7 +92,12 @@ foreach ($package in $packages) {
     Write-Host (Get-WplText -Key Downloading -Language $Language -ArgumentList @($package.packageId,$package.version)) -ForegroundColor Cyan
     $resolved = Download-File $package $archive
     $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
-    if ($package.source.sha256 -and $hash -ne $package.source.sha256) {
+    # An absent pin used to mean "skip the check", so a definition without a
+    # sha256 would download and extract unverified. Refuse instead, and remove
+    # the rejected archive so a later run cannot pick up unverified bytes.
+    $expected = [string]$package.source.sha256
+    if ($expected -notmatch '^[0-9a-fA-F]{64}$' -or $hash -ne $expected.ToUpperInvariant()) {
+        Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
         throw (Get-WplText -Key HashMismatch -Language $Language -ArgumentList @($package.packageId,$hash))
     }
 

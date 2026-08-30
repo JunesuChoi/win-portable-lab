@@ -34,6 +34,16 @@ if ($selected.Risk -notmatch '^read-only' -and -not $AcknowledgeRisk) {
     throw (Get-WplText -Key RiskBlocked -Language $Language -ArgumentList @($Id,$selected.Risk))
 }
 
+# A user-declared path replaces the bundled binary and still runs with whatever
+# rights this session holds, so it needs its own acknowledgement even when the
+# catalog risk tier is read-only. Otherwise a launcher repointed by an unsigned
+# per-machine file would start silently.
+$overrideTrust = Get-WplToolOverrideTrust -Root $Root -LauncherId ([string]$selected.Id)
+if ($overrideTrust -and -not $overrideTrust.IsTrusted -and -not $AcknowledgeRisk) {
+    throw (Get-WplText -Key UntrustedOverrideBlocked -Language $Language -ArgumentList @(
+        $Id,$overrideTrust.Path,$overrideTrust.InsideToolsRoot,$overrideTrust.SignatureStatus))
+}
+
 $selectedArguments = @($selected.Arguments | Where-Object { $null -ne $_ })
 $launchId = '{0}-{1}-{2}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'),$selected.Id,([guid]::NewGuid().ToString('N').Substring(0,8))
 $launchRecordPath = Join-Path $Root ('logs\tool-launches\{0}.json' -f $launchId)

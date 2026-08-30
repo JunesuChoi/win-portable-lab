@@ -32,9 +32,10 @@ if ($ElevationPayload) {
 }
 
 function Test-WplCurrentAdministrator {
+    # One implementation lives in WinPortableLab.Core.psm1; this wrapper exists
+    # only because elevation runs before the module import below.
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
-    $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    return ([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 $Language = Resolve-WplLanguage -Root $Root -Requested $Language
@@ -66,40 +67,16 @@ $script:WplUserToolPaths = $null
 # Output directories are not tracked in git, so the console creates them on the
 # first run from a fresh clone before anything tries to write a report or log.
 Import-Module (Join-Path $Root 'src\WinPortableLab.Core.psm1') -Force
+# Process helpers own argument encoding, so the GUI never hand-builds a command line.
+Import-Module (Join-Path $Root 'src\WinPortableLab.Process.psm1') -Force
 [void](Initialize-WplRuntimeDirectory -Root $Root)
 
-function Get-WplUserToolPathMap {
-    # Cached for one analysis pass; Reset-WplToolIndex clears it so an edited
-    # override file is picked up by the explicit refresh.
-    if ($null -eq $script:WplUserToolPaths) {
-        $map = @{}
-        $path = Join-Path $Root 'config\user-tool-paths.json'
-        if (Test-Path -LiteralPath $path -PathType Leaf) {
-            try {
-                foreach ($entry in @(Read-JsonArray $path)) {
-                    $id = [string]$entry.id
-                    $declared = [string]$entry.path
-                    if ([string]::IsNullOrWhiteSpace($id) -or [string]::IsNullOrWhiteSpace($declared)) { continue }
-                    if ($entry.PSObject.Properties.Name -contains 'enabled' -and $entry.enabled -eq $false) { continue }
-                    $map[$id] = $declared
-                }
-            }
-            catch { }
-        }
-        $script:WplUserToolPaths = $map
-    }
-    return $script:WplUserToolPaths
-}
-
+# Override reading and executable resolution live in WinPortableLab.Core.psm1.
+# The GUI used to reimplement both, and the copies had already drifted: this one
+# indexed every file type while the module filtered to *.exe, and the two sliced
+# the relative path from different roots. Delegate so one policy governs both.
 function Get-WplUserToolPath([string]$LauncherId) {
-    if ([string]::IsNullOrWhiteSpace($LauncherId)) { return $null }
-    $map = Get-WplUserToolPathMap
-    if (-not $map.ContainsKey($LauncherId)) { return $null }
-    $declared = [Environment]::ExpandEnvironmentVariables($map[$LauncherId])
-    if (-not [IO.Path]::IsPathRooted($declared)) { $declared = Join-Path $Root $declared }
-    if (-not (Test-Path -LiteralPath $declared -PathType Leaf)) { return $null }
-    if ([IO.Path]::GetExtension($declared) -ine '.exe') { return $null }
-    return Get-Item -LiteralPath $declared
+    return Get-WplToolOverride -Root $Root -LauncherId ([string]$LauncherId)
 }
 
 function Get-WplToolFileIndex {
@@ -130,21 +107,22 @@ function Reset-WplToolIndex {
 }
 
 function Read-JsonArray([string]$Path) {
-    $document = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
-    $items = @()
-    for ($index = 0; $index -lt $document.Count; $index++) { $items += $document[$index] }
-    return $items
+    # Delegates to the module so PS 5.1 array normalisation has one implementation.
+    return @(Read-WplJsonArray -Path $Path)
 }
 
 function Find-LauncherExecutable([object]$Launcher) {
-    # User-declared paths take precedence, matching Resolve-WplExecutable.
+    # Resolution policy (override precedence, *.exe filtering, pattern matching)
+    # belongs to Resolve-WplExecutable. The cached index below only exists so a
+    # single analysis pass does not walk tools\ once per candidate.
     $override = Get-WplUserToolPath ([string]$Launcher.id)
     if ($override) { return $override }
-    if (-not $Launcher.pattern) { return $null }
-    $toolsRoot = Join-Path $Root 'tools'
+    if ([string]::IsNullOrWhiteSpace([string]$Launcher.pattern)) { return $null }
+    $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
     return Get-WplToolFileIndex |
+        Where-Object { $_.Extension -ieq '.exe' } |
         Where-Object {
-            $relative = $_.FullName.Substring($toolsRoot.Length).TrimStart('\')
+            $relative = $_.FullName.Substring($resolvedRoot.Length).TrimStart('\')
             $relative -like "*\$($Launcher.pattern)" -or $_.Name -like $Launcher.pattern
         } |
         Sort-Object LastWriteTime,FullName -Descending |
@@ -346,6 +324,16 @@ function Open-ToolIds([string[]]$Ids,[switch]$RiskAccepted,[string]$UseLanguage 
         }
     }
     return @($results)
+}
+
+function Get-WplSafeLaunchIds([object]$Plan) {
+    # One definition of "safe to launch without a risk prompt": recommended now,
+    # read-only, GUI-startable, and actually resolved on disk. It was written out
+    # three times, so a change to one copy silently disagreed with the others.
+    if (-not $Plan) { return @() }
+    return @($Plan.programs |
+        Where-Object { $_.state -eq 'recommended-now' -and $_.risk -eq 'read-only' -and $_.launchMode -eq 'gui' -and $_.launchable } |
+        Select-Object -ExpandProperty id)
 }
 
 function Open-WplTextDocument([Parameter(Mandatory)][string]$Path) {
@@ -712,7 +700,7 @@ function Show-WplGui {
     $script:GuiCurrentProfile = $Profile
     $script:GuiCurrentFilter = 'all'
     $script:GuiSnapshotCapturedAt = $null
-    $script:GuiIsAdministrator = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    $script:GuiIsAdministrator = Test-WplCurrentAdministrator
     $script:GuiCatalogNames = @{}
     foreach ($catalogTool in @(Read-JsonArray (Join-Path $Root 'catalog\tools.json'))) { $script:GuiCatalogNames[[string]$catalogTool.id] = [string]$catalogTool.name }
 
@@ -2024,7 +2012,15 @@ function Show-WplGui {
     $ui.LaunchButton.Add_Click({
         $selected = $ui.ProgramGrid.SelectedItem
         if (-not $selected) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiSelectTool -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
-        if (-not $selected.launchable) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNotLaunchable -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
+       if (-not $selected.launchable) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNotLaunchable -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
+        # An overridden launcher runs a binary the bundled tree does not own, so
+        # it is confirmed even when the catalog risk tier is read-only.
+        $selectedTrust = Get-WplToolOverrideTrust -Root $Root -LauncherId ([string]$selected.id)
+        if ($selectedTrust -and -not $selectedTrust.IsTrusted) {
+            $overrideMessage = Get-WplText -Key GuiOverrideConfirm -Language $script:GuiLanguage -ArgumentList @([string]$selected.id,$selectedTrust.Path,$selectedTrust.InsideToolsRoot,$selectedTrust.SignatureStatus)
+            $overrideAnswer = [System.Windows.MessageBox]::Show($overrideMessage,$window.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Warning)
+            if ($overrideAnswer -ne [System.Windows.MessageBoxResult]::Yes) { return }
+        }
         $riskAccepted = $false
         if ([string]$selected.risk -notmatch '^read-only') {
             $message = Get-WplText -Key GuiRiskConfirm -Language $script:GuiLanguage -ArgumentList @($selected.riskText)
@@ -2048,14 +2044,19 @@ function Show-WplGui {
             Set-GuiStatusTone 'busy'
             $ui.StatusText.Text = Get-WplText -Key GuiLaunching -Language $script:GuiLanguage -ArgumentList @([string]$selected.id)
             $sessionScript = Join-Path $Root 'scripts\Start-WplToolSession.ps1'
-            $sessionArguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "{0}" -Root "{1}" -LauncherId {2} -Start -AcceptRisk' -f $sessionScript,$Root,[string]$selected.id
             $sessionWindowStyle = if([string]$selected.launchMode -in @('cli','cli-help')){'Normal'}else{'Hidden'}
-            if($sessionWindowStyle -eq 'Normal'){$sessionArguments += ' -PauseOnExit'}
+            # Every value is encoded with the shared CommandLineToArgvW encoder.
+            # Interpolating the launcher id unquoted let a hand-edited id smuggle
+            # extra parameters into an elevated powershell.exe invocation.
+            $sessionTokens = [Collections.Generic.List[string]]::new()
+            $sessionTokens.AddRange([string[]]@('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$sessionScript,'-Root',$Root,'-LauncherId',[string]$selected.id,'-Start','-AcceptRisk'))
+            if($sessionWindowStyle -eq 'Normal'){$sessionTokens.Add('-PauseOnExit')}
             $launchSignal=$null
             if($sessionWindowStyle -eq 'Hidden'){
                 $launchSignal=Join-Path $Root ('logs\launch-signal-{0}.json' -f [guid]::NewGuid().ToString('N'))
-                $sessionArguments += ' -LaunchSignalPath "{0}"' -f $launchSignal
+                $sessionTokens.AddRange([string[]]@('-LaunchSignalPath',$launchSignal))
             }
+            $sessionArguments = ConvertTo-WplWindowsCommandLine -ArgumentList $sessionTokens.ToArray()
             $sessionStart=@{FilePath='powershell.exe';ArgumentList=$sessionArguments;WindowStyle=$sessionWindowStyle;PassThru=$true}
             if(-not $script:GuiIsAdministrator){$sessionStart.Verb='RunAs'}
             $sessionHost=Start-Process @sessionStart
@@ -2081,8 +2082,20 @@ function Show-WplGui {
     })
     $ui.SafeLaunchButton.Add_Click({
         if (-not $script:GuiPlan) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNoPlan -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
-        $safe = @($script:GuiPlan.programs | Where-Object { $_.state -eq 'recommended-now' -and $_.risk -eq 'read-only' -and $_.launchMode -eq 'gui' -and $_.launchable } | Select-Object -ExpandProperty id)
-        if (-not $safe.Count) { [System.Windows.MessageBox]::Show((Get-WplText -Key NoSafeLaunch -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
+        $safe = @(Get-WplSafeLaunchIds $script:GuiPlan)
+       if (-not $safe.Count) { [System.Windows.MessageBox]::Show((Get-WplText -Key NoSafeLaunch -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
+        # A read-only tool repointed by the per-machine override file is not safe
+        # to start without a prompt, so each override is confirmed individually.
+        $confirmedSafe = [Collections.Generic.List[string]]::new()
+        foreach ($safeId in $safe) {
+            $trust = Get-WplToolOverrideTrust -Root $Root -LauncherId $safeId
+            if (-not $trust -or $trust.IsTrusted) { $confirmedSafe.Add($safeId); continue }
+            $overrideMessage = Get-WplText -Key GuiOverrideConfirm -Language $script:GuiLanguage -ArgumentList @($safeId,$trust.Path,$trust.InsideToolsRoot,$trust.SignatureStatus)
+            $overrideAnswer = [System.Windows.MessageBox]::Show($overrideMessage,$window.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Warning)
+            if ($overrideAnswer -eq [System.Windows.MessageBoxResult]::Yes) { $confirmedSafe.Add($safeId) }
+        }
+        if (-not $confirmedSafe.Count) { return }
+        $safe = @($confirmedSafe)
         $message = Get-WplText -Key GuiSafeLaunchConfirm -Language $script:GuiLanguage -ArgumentList @($safe.Count,($safe -join "`n"))
         $answer = [System.Windows.MessageBox]::Show($message,$window.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Information)
         if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
@@ -2237,7 +2250,7 @@ if ($Action -in @('check','list')) {
 }
 
 if ($Action -eq 'launch-recommended') {
-    $safe = @($result.Connection.Plan.programs | Where-Object { $_.state -eq 'recommended-now' -and $_.risk -eq 'read-only' -and $_.launchMode -eq 'gui' -and $_.launchable } | Select-Object -ExpandProperty id)
+    $safe = @(Get-WplSafeLaunchIds $result.Connection.Plan)
     if (-not $safe.Count) { Write-Host (Get-WplText -Key NoSafeLaunch -Language $Language) -ForegroundColor Yellow; return }
     Open-ToolIds -Ids $safe
     return
@@ -2250,7 +2263,7 @@ while ($true) {
     switch ($choice) {
         '1' { Show-ProgramPlan $result.Connection }
         '2' {
-            $safe = @($result.Connection.Plan.programs | Where-Object { $_.state -eq 'recommended-now' -and $_.risk -eq 'read-only' -and $_.launchMode -eq 'gui' -and $_.launchable } | Select-Object -ExpandProperty id)
+            $safe = @(Get-WplSafeLaunchIds $result.Connection.Plan)
             if ($safe.Count) { Open-ToolIds -Ids $safe } else { Write-Host (Get-WplText -Key NoSafeLaunch -Language $Language) -ForegroundColor Yellow }
         }
         '3' { $selectedId = Read-Host (Get-WplText -Key EnterToolId -Language $Language); if ($selectedId) { Open-ToolIds -Ids @($selectedId) -RiskAccepted:$AcknowledgeRisk } }

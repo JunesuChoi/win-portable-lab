@@ -129,4 +129,29 @@ function Get-WplToolOverride {
     return Get-Item -LiteralPath $declared
 }
 
-Export-ModuleMember -Function Read-WplJson,Read-WplJsonArray,Get-WplRuntimePaths,Get-WplPackageDefinitions,Test-WplAdministrator,Initialize-WplRuntimeDirectory,Resolve-WplExecutable,Get-WplToolOverridePath,Read-WplToolOverrides,Get-WplToolOverride
+# The override file is per-machine, unsigned, and lives on the removable medium,
+# so anyone who can write it can name the image an elevated launcher starts.
+# Callers use this to require an explicit confirmation for an overridden launcher
+# even when its catalog risk tier is read-only, which would otherwise launch
+# without any prompt. Returns $null when the launcher uses the bundled tree.
+function Get-WplToolOverrideTrust {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][AllowEmptyString()][string]$LauncherId)
+    $override = Get-WplToolOverride -Root $Root -LauncherId $LauncherId
+    if (-not $override) { return $null }
+    $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path.TrimEnd('\')
+    $toolsRoot = (Join-Path $resolvedRoot 'tools').TrimEnd('\')
+    $full = [IO.Path]::GetFullPath($override.FullName)
+    $insideTools = $full.StartsWith($toolsRoot + '\',[StringComparison]::OrdinalIgnoreCase)
+    $signature = 'Unknown'
+    try { $signature = [string](Get-AuthenticodeSignature -LiteralPath $full).Status } catch { }
+    [pscustomobject]@{
+        LauncherId = [string]$LauncherId
+        Path = $full
+        InsideToolsRoot = $insideTools
+        SignatureStatus = $signature
+        IsTrusted = ($insideTools -and $signature -eq 'Valid')
+    }
+}
+
+Export-ModuleMember -Function Read-WplJson,Read-WplJsonArray,Get-WplRuntimePaths,Get-WplPackageDefinitions,Test-WplAdministrator,Initialize-WplRuntimeDirectory,Resolve-WplExecutable,Get-WplToolOverridePath,Read-WplToolOverrides,Get-WplToolOverride,Get-WplToolOverrideTrust

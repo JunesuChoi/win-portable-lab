@@ -216,7 +216,6 @@ $body = @(
     ($inventory.DeviceGuard | ConvertTo-Html -Fragment)
     "<h2>$($labels.Drivers)</h2>"
     ($inventory.StorageControllers | ConvertTo-Html -Fragment)
-    ($inventory.PnpProblems | ConvertTo-Html -Fragment)
     "<h2>$($labels.Pnp)</h2>"
     ($inventory.PnpProblems | ConvertTo-Html -Fragment)
     "<p>$($labels.Raw): <code>hardware.json</code>, <code>events.json</code></p>"

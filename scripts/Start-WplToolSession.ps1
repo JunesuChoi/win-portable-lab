@@ -47,6 +47,9 @@ $conditions = Read-WplJson -Path (Join-Path $Root 'config\stop-conditions.json')
 $isRisky = [string]$launcher.risk -notmatch '^read-only'
 if ($TimeoutMinutes -lt 0) { $TimeoutMinutes = if($isRisky){[int]$conditions.defaultTimeoutMinutes}else{0} }
 $executable = Resolve-WplExecutable -Root $Root -Launcher $launcher
+# Record whether this launcher is backed by a user-declared path, so the session
+# journal shows that the bundled binary was not the thing that ran.
+$overrideTrust = Get-WplToolOverrideTrust -Root $Root -LauncherId ([string]$launcher.id)
 $sessionId = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'),([guid]::NewGuid().ToString('N').Substring(0,8))
 $sessionPath = Join-Path $Root ('sessions\{0}' -f $sessionId)
 New-Item -ItemType Directory -Path $sessionPath -Force | Out-Null
@@ -55,6 +58,7 @@ if ($launcher.PSObject.Properties.Name.Contains('arguments')) { $launcherArgumen
 $record = [ordered]@{
     schemaVersion=2;sessionId=$sessionId;launcherId=$LauncherId;risk=$launcher.risk;launchMode=$launcher.launchMode
     executable=if($executable){$executable.FullName}else{$null};arguments=$launcherArguments
+    userDeclaredPath=if($overrideTrust){[ordered]@{path=$overrideTrust.Path;insideToolsRoot=$overrideTrust.InsideToolsRoot;signatureStatus=$overrideTrust.SignatureStatus;trusted=$overrideTrust.IsTrusted}}else{$null}
     timeoutMinutes=$TimeoutMinutes;createdAt=(Get-Date).ToString('o');state='preview';sessionHostProcessId=$PID
     parentProcessId=$null;processId=$null;startedAt=$null;startupObservedMilliseconds=$null;endedAt=$null;exitCode=$null;stopReason=$null
 }
