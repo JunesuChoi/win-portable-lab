@@ -2,29 +2,60 @@
 param(
     [Parameter(Mandatory)][string]$Root,
     [string]$OutputRoot = (Join-Path $Root 'recommendations'),
+    [string]$InventoryDirectory,
     [ValidateSet('ko','en','auto')][string]$Language = 'auto'
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'WinPortableLab.Localization.ps1')
 $Language = Resolve-WplLanguage -Root $Root -Requested $Language
+Import-Module (Join-Path $Root 'src\WinPortableLab.Core.psm1') -Force
+
+# Integrated checks pass the already-captured inventory report. This avoids a
+# second full CIM/event collection while retaining the existing standalone
+# collection fallback when no report directory is supplied.
+$inventorySnapshot = $null
+$eventsSnapshot = @()
+$eventsSnapshotLoaded = $false
+if ($InventoryDirectory) {
+    $hardwarePath = Join-Path $InventoryDirectory 'hardware.json'
+    $eventsPath = Join-Path $InventoryDirectory 'events.json'
+    if (Test-Path -LiteralPath $hardwarePath) { $inventorySnapshot = Read-WplJson -Path $hardwarePath }
+    if (Test-Path -LiteralPath $eventsPath) {
+        $eventsSnapshot = @(Read-WplJsonArray -Path $eventsPath)
+        $eventsSnapshotLoaded = $true
+    }
+}
 
 function Read-CimSafe([string]$ClassName) {
     try { return @(Get-CimInstance -ClassName $ClassName -ErrorAction Stop) }
     catch { return @() }
 }
 
-$cpu = @(Read-CimSafe 'Win32_Processor') | Select-Object -First 1
-$system = @(Read-CimSafe 'Win32_ComputerSystem') | Select-Object -First 1
-$os = @(Read-CimSafe 'Win32_OperatingSystem') | Select-Object -First 1
-$board = @(Read-CimSafe 'Win32_BaseBoard') | Select-Object -First 1
-$bios = @(Read-CimSafe 'Win32_BIOS') | Select-Object -First 1
-$memory = @(Read-CimSafe 'Win32_PhysicalMemory')
-$gpus = @(Read-CimSafe 'Win32_VideoController')
-$disks = @(Read-CimSafe 'Win32_DiskDrive')
-# Desktops report no battery, which is how the battery tool stays hidden there.
-$batteries = @(Read-CimSafe 'Win32_Battery')
-$recentSystemEvents = try { @(Get-WinEvent -LogName System -MaxEvents 3000 -ErrorAction Stop | Where-Object { $_.TimeCreated -ge [datetime]::Now.AddDays(-7) }) } catch { @() }
+if ($inventorySnapshot) {
+    $cpu = @($inventorySnapshot.Processor | Where-Object { -not $_.Error }) | Select-Object -First 1
+    $system = @($inventorySnapshot.ComputerSystem | Where-Object { -not $_.Error }) | Select-Object -First 1
+    $os = @($inventorySnapshot.OperatingSystem | Where-Object { -not $_.Error }) | Select-Object -First 1
+    $board = @($inventorySnapshot.BaseBoard | Where-Object { -not $_.Error }) | Select-Object -First 1
+    $bios = @($inventorySnapshot.Bios | Where-Object { -not $_.Error }) | Select-Object -First 1
+    $memory = @($inventorySnapshot.MemoryModules | Where-Object { -not $_.Error })
+    $gpus = @($inventorySnapshot.Graphics | Where-Object { -not $_.Error })
+    $disks = @($inventorySnapshot.DiskDrives | Where-Object { -not $_.Error })
+    $batteries = @($inventorySnapshot.Batteries | Where-Object { -not $_.Error })
+}
+else {
+    $cpu = @(Read-CimSafe 'Win32_Processor') | Select-Object -First 1
+    $system = @(Read-CimSafe 'Win32_ComputerSystem') | Select-Object -First 1
+    $os = @(Read-CimSafe 'Win32_OperatingSystem') | Select-Object -First 1
+    $board = @(Read-CimSafe 'Win32_BaseBoard') | Select-Object -First 1
+    $bios = @(Read-CimSafe 'Win32_BIOS') | Select-Object -First 1
+    $memory = @(Read-CimSafe 'Win32_PhysicalMemory')
+    $gpus = @(Read-CimSafe 'Win32_VideoController')
+    $disks = @(Read-CimSafe 'Win32_DiskDrive')
+    # Desktops report no battery, which is how the battery tool stays hidden there.
+    $batteries = @(Read-CimSafe 'Win32_Battery')
+}
+$recentSystemEvents = if ($eventsSnapshotLoaded) { @($eventsSnapshot) } else { try { @(Get-WinEvent -LogName System -MaxEvents 3000 -ErrorAction Stop | Where-Object { $_.TimeCreated -ge [datetime]::Now.AddDays(-7) }) } catch { @() } }
 $wheaCount = @($recentSystemEvents | Where-Object ProviderName -eq 'Microsoft-Windows-WHEA-Logger').Count
 $unexpectedPowerCount = @($recentSystemEvents | Where-Object { $_.ProviderName -eq 'Microsoft-Windows-Kernel-Power' -and $_.Id -eq 41 }).Count
 $recommendationMode = if ($wheaCount -gt 0 -or $unexpectedPowerCount -gt 0) { 'diagnostic-baseline-only' } else { 'conservative-baseline' }

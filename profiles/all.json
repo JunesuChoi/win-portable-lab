@@ -1,0 +1,10 @@
+{
+  "id": "all",
+  "name": "All diagnostic routes",
+  "nameKo": "전체 점검 경로",
+  "nameEn": "All diagnostic routes",
+  "estimatedMinutes": 360,
+  "requiresConfirmation": true,
+  "tools": ["hwinfo", "smartmontools", "prime95", "y-cruncher", "testmem5", "hci-memtest", "occt", "memtest86plus", "crystaldiskmark", "diskspd", "ddu", "sdio"],
+  "steps": ["quick-profile", "storage-route", "cpu-memory-route", "gpu-driver-route", "post-test-event-diff"]
+}

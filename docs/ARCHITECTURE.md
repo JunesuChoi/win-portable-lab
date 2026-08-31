@@ -8,7 +8,7 @@ WinPortableLab separates read-only inspection from state-changing operations.
 2. The inventory layer records the host state using built-in Windows APIs; `-NoElevation` produces an explicitly limited report.
 3. The catalog decides whether a tool may be bundled, downloaded, supplied by the user, or only launched when already installed.
 4. A profile selects test adapters and required safety gates.
-5. The supervisor records launch/session state, timeout, cancellation and free-memory stops. HWiNFO is the single operator-visible sensor baseline; temperature is not currently an automatic stop input.
+5. The supervisor records launch/session state, timeout, cancellation and free-memory stops. HWiNFO is the single operator-visible sensor baseline; temperature is not currently an automatic stop input, so high-load sessions require a separate manual-monitoring acknowledgement.
 6. The reporter writes a self-contained evidence bundle to the portable drive.
 
 ## Planned components

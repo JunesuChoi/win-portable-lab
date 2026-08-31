@@ -56,6 +56,45 @@ function Test-WplAdministrator {
     ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Test-WplBaselineBlockedRisk {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$RecommendationMode,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Risk
+    )
+    if ($RecommendationMode -ne 'diagnostic-baseline-only') { return $false }
+    # A dirty diagnostic baseline blocks workloads that can add heat, writes or
+    # tuning changes. Read-only diagnosis and driver recovery remain available.
+    return $Risk -match '^(?:high-load|very-high-load|writes-test-file|fills-free-space-high-write|writes-spot-checks-usb|installer-changes-cpu-settings|installer-changes-cpu-memory-settings)$'
+}
+
+# Row visibility for the console list. This lived inline in the GUI as a switch
+# statement, where `$_` silently referred to the switch input instead of the
+# pipeline item, so every filter except one evaluated against a bare string and
+# matched everything. Keeping it here makes the predicate directly testable.
+function Test-WplProgramVisible {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Program,
+        [AllowEmptyString()][string]$Filter = 'recommended',
+        [AllowEmptyString()][string]$Query = ''
+    )
+
+    $trimmedQuery = ([string]$Query).Trim()
+    if ($trimmedQuery) {
+        $matchesQuery = ([string]$Program.displayName -like "*$trimmedQuery*") -or ([string]$Program.id -like "*$trimmedQuery*")
+        if (-not $matchesQuery) { return $false }
+    }
+
+    switch ($Filter) {
+        'recommended' { return ([string]$Program.state -ne 'catalog-only') }
+        'ready' { return [bool]$Program.launchable }
+        'missing' { return (-not [bool]$Program.installed) }
+        'risky' { return ([string]$Program.risk -notmatch '^read-only') }
+        default { return $true }
+    }
+}
+
 # Runtime output directories are created on demand instead of being tracked as
 # empty placeholders, so a fresh clone carries only real content. Every entry is
 # either gitignored output or the tools tree that Setup-Tools.ps1 populates.
@@ -163,4 +202,4 @@ function Get-WplToolOverrideTrust {
     }
 }
 
-Export-ModuleMember -Function Read-WplJson,Read-WplJsonArray,Get-WplRuntimePaths,Get-WplPackageDefinitions,Test-WplAdministrator,Initialize-WplRuntimeDirectory,Resolve-WplExecutable,Get-WplToolOverridePath,Read-WplToolOverrides,Get-WplToolOverride,Get-WplToolOverrideTrust
+Export-ModuleMember -Function Read-WplJson,Read-WplJsonArray,Get-WplRuntimePaths,Get-WplPackageDefinitions,Test-WplAdministrator,Test-WplBaselineBlockedRisk,Test-WplProgramVisible,Initialize-WplRuntimeDirectory,Resolve-WplExecutable,Get-WplToolOverridePath,Read-WplToolOverrides,Get-WplToolOverride,Get-WplToolOverrideTrust

@@ -4,6 +4,7 @@ param(
     [string]$Id,
     [switch]$List,
     [switch]$AcknowledgeRisk,
+    [switch]$AcknowledgeManualTemperatureMonitoring,
     [ValidateSet('ko','en','auto')][string]$Language = 'auto'
 )
 
@@ -32,6 +33,9 @@ if ($selected.Mode -eq 'external-boot') { throw (Get-WplText -Key ExternalBootOn
 
 if ($selected.Risk -notmatch '^read-only' -and -not $AcknowledgeRisk) {
     throw (Get-WplText -Key RiskBlocked -Language $Language -ArgumentList @($Id,$selected.Risk))
+}
+if ($selected.Risk -match '^(?:high-load|very-high-load)$' -and -not $AcknowledgeManualTemperatureMonitoring) {
+    throw (Get-WplText -Key ManualTemperatureMonitoringRequired -Language $Language -ArgumentList @($Id))
 }
 
 # A user-declared path replaces the bundled binary and still runs with whatever

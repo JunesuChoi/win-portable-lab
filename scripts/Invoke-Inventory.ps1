@@ -63,6 +63,9 @@ $inventory = [ordered]@{
     Graphics = Invoke-SafeCollection {
         Get-CimInstance Win32_VideoController | Select-Object Name, AdapterCompatibility, DriverVersion, DriverDate, AdapterRAM, VideoModeDescription, PNPDeviceID
     }
+    Batteries = Invoke-SafeCollection {
+        Get-CimInstance Win32_Battery | Select-Object Name, DeviceID, DesignVoltage, Chemistry, EstimatedChargeRemaining
+    }
     DiskDrives = Invoke-SafeCollection {
         Get-CimInstance Win32_DiskDrive | Select-Object Model, InterfaceType, MediaType, FirmwareRevision, Size, Status, PNPDeviceID
     }

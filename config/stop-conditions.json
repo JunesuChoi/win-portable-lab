@@ -3,10 +3,8 @@
   "defaultTimeoutMinutes": 30,
   "pollSeconds": 2,
   "minimumFreeMemoryMb": 512,
-  "maximumCpuTemperatureC": 95,
-  "maximumGpuTemperatureC": 92,
   "notes": {
-    "ko": "온도 자동 중단은 센서 공급자가 값을 제공할 때만 적용됩니다. 취소 마커와 시간 제한은 항상 적용됩니다.",
-    "en": "Temperature stops apply only when a sensor provider exposes values. Cancellation markers and timeouts always apply."
+    "ko": "현재 자동 중단은 취소 요청, 시간 제한, 여유 메모리에 적용됩니다. 고부하 도구는 HWiNFO 등으로 온도를 직접 감시한다는 별도 승인이 있어야 시작됩니다.",
+    "en": "Automatic stops currently cover cancellation, timeout, and free memory. High-load tools start only after a separate acknowledgement that the operator will monitor temperatures in HWiNFO or an equivalent sensor view."
   }
 }

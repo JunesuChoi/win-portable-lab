@@ -86,6 +86,68 @@ function Wait-WplProcessStartup {
     return [pscustomobject]@{ Running=$true; ExitCode=$null; ObservedMilliseconds=[int]$watch.ElapsedMilliseconds }
 }
 
+function Get-WplRelatedProcessIds {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][int]$RootProcessId,
+        [Parameter(Mandatory)][string]$ExecutablePath,
+        [Parameter(Mandatory)][datetime]$StartedAfter,
+        [object[]]$ExcludedProcesses = @()
+    )
+
+    $rows = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CreationDate)
+    $excluded = @{}
+    foreach ($item in @($ExcludedProcesses)) {
+        if ($null -eq $item) { continue }
+        if ($item -is [int]) { $excluded[[int]$item] = $null; continue }
+        $excluded[[int]$item.ProcessId] = $item.CreationDate
+    }
+    $related = [Collections.Generic.HashSet[int]]::new()
+    if ($rows.ProcessId -contains $RootProcessId) { [void]$related.Add($RootProcessId) }
+
+    # Some utilities replace their bootstrap process with a second process of
+    # the same executable. Exclude every PID that existed before launch and use
+    # a tight creation window so an old resident copy is never adopted.
+    $imageName = [IO.Path]::GetFileName($ExecutablePath)
+    $threshold = $StartedAfter.AddSeconds(-2)
+    foreach ($row in $rows) {
+        $processId = [int]$row.ProcessId
+        $created = $row.CreationDate
+        # A PID can be recycled between the pre-launch snapshot and this poll.
+        # Compare its creation timestamp with the old process identity instead
+        # of excluding the number forever.
+        if ($excluded.ContainsKey($processId)) {
+            $oldCreated = $excluded[$processId]
+            if ($null -eq $oldCreated -or (-not $created) -or [datetime]$created -eq [datetime]$oldCreated) { continue }
+        }
+        $sameImage = ([string]$row.ExecutablePath -and [string]$row.ExecutablePath -ieq $ExecutablePath) -or ([string]$row.Name -ieq $imageName)
+        if ($sameImage -and $created -and [datetime]$created -ge $threshold) { [void]$related.Add($processId) }
+    }
+
+    do {
+        $added = $false
+        foreach ($row in $rows) {
+            $processId = [int]$row.ProcessId
+            if (-not $related.Contains($processId) -and $related.Contains([int]$row.ParentProcessId)) {
+                [void]$related.Add($processId)
+                $added = $true
+            }
+        }
+    } while ($added)
+    return @($related | Sort-Object)
+}
+
+function Stop-WplRelatedProcesses {
+    [CmdletBinding()]
+    param([AllowEmptyCollection()][int[]]$ProcessIds = @())
+    # Children are normally assigned higher PIDs, but ordering descending is
+    # only a best effort; Stop-Process is repeated by the caller on the next poll.
+    foreach ($id in @($ProcessIds | Sort-Object -Descending)) {
+        Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Write-WplJsonAtomic {
     [CmdletBinding()]
     param(
@@ -129,4 +191,4 @@ function Get-WplErrorDetail {
     }
 }
 
-Export-ModuleMember -Function ConvertTo-WplArgumentList,ConvertTo-WplWindowsCommandLine,Start-WplProcess,Wait-WplProcessStartup,Write-WplJsonAtomic,Get-WplErrorDetail
+Export-ModuleMember -Function ConvertTo-WplArgumentList,ConvertTo-WplWindowsCommandLine,Start-WplProcess,Wait-WplProcessStartup,Get-WplRelatedProcessIds,Stop-WplRelatedProcesses,Write-WplJsonAtomic,Get-WplErrorDetail

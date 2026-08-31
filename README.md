@@ -124,9 +124,9 @@ Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly 
 .\scripts\Test-Regression.ps1 -Root .
 ```
 
-테스트 53개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 모든 Sysinternals 런처가 모달 대화상자에 걸리지 않도록 `-accepteula`를 전달하는지, 실제 출력을 낸 도움말 실행이 실패로 기록되지 않는지입니다.
+테스트 58개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 고부하 도구가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
 
-53 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that every Sysinternals launcher passes `-accepteula` so it does not hang on a modal dialog, and that a help invocation printing real output is not recorded as a failure.
+58 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that a high-load tool refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
 
 ---
 
@@ -189,4 +189,3 @@ Project scripts, configuration and documentation are MIT licensed; see [LICENSE]
 도구를 추가하려면 카탈로그 항목, 실제 고정 해시가 있는 매니페스트, 위험 등급이 선언된 런처, 그리고 KO/EN 문서가 모두 필요합니다. [CONTRIBUTING.md](CONTRIBUTING.md)에 점검 목록이 있고, 저장소 검증이 무엇이 빠졌는지 알려줍니다.
 
 Adding a tool means adding a catalog entry, a manifest with a real pinned hash, a launcher with a declared risk tier, and KO/EN documentation. [CONTRIBUTING.md](CONTRIBUTING.md) has the checklist. Repository validation will tell you what you missed.
-

@@ -6,6 +6,7 @@ param(
     [string]$Profile = 'quick',
     [string[]]$ToolId,
     [switch]$AcknowledgeRisk,
+    [switch]$AcknowledgeManualTemperatureMonitoring,
     [switch]$InstallMissing,
     [ValidateSet('ko','en','auto')]
     [string]$Language = 'auto',
@@ -25,6 +26,7 @@ if ($ElevationPayload) {
         $Profile = [string]$payload.Profile
         $ToolId = @($payload.ToolId)
         $AcknowledgeRisk = [bool]$payload.AcknowledgeRisk
+        $AcknowledgeManualTemperatureMonitoring = [bool]$payload.AcknowledgeManualTemperatureMonitoring
         $InstallMissing = [bool]$payload.InstallMissing
         $Language = [string]$payload.Language
     }
@@ -42,6 +44,7 @@ $Language = Resolve-WplLanguage -Root $Root -Requested $Language
 if (-not $NoElevation -and -not (Test-WplCurrentAdministrator)) {
     $payload = [ordered]@{
         Action=$Action;Profile=$Profile;ToolId=@($ToolId);AcknowledgeRisk=[bool]$AcknowledgeRisk
+        AcknowledgeManualTemperatureMonitoring=[bool]$AcknowledgeManualTemperatureMonitoring
         InstallMissing=[bool]$InstallMissing;Language=$Language
     }
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress -Depth 4)))
@@ -222,6 +225,13 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
         Add-Candidate $candidates 'glary-utilities' 'guided-test' 'RecGlary'
     }
 
+    # The default GUI view filters these rows out, but the All tools view must
+    # expose every configured launcher so the console is also a complete tool
+    # manager rather than a recommendation-only subset.
+    foreach ($launcher in $launchers) {
+        Add-Candidate $candidates ([string]$launcher.id) 'catalog-only' 'RecCatalogOnly'
+    }
+
     $programs = @()
     foreach ($candidateId in $candidates.Keys) {
         $launcher = @($launchers | Where-Object { $_.id -eq $candidateId }) | Select-Object -First 1
@@ -232,19 +242,25 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
         # 'available-in-profile' rows exist only so the tool stays visible. They must
         # not be launchable, or the profile gate around risky tools means nothing.
         $discoveryOnly = $candidates[$candidateId].state -eq 'available-in-profile'
-        $launchableState = [bool]$exe -and -not $discoveryOnly
+        # A recent WHEA or Kernel-Power event makes stress/overclock paths
+        # diagnostic-only. Keep them visible, but never present them as a next
+        # launchable step until the baseline is clean.
+        $baselineBlocked = Test-WplBaselineBlockedRisk -RecommendationMode ([string]$settings.detected.healthSignals.recommendationMode) -Risk ([string]$launcher.risk)
+        $launchableState = [bool]$exe -and -not $discoveryOnly -and -not $baselineBlocked
+        $state = if ($baselineBlocked) { 'diagnostic-baseline-only' } else { $candidates[$candidateId].state }
+        $reasonKey = if ($baselineBlocked) { 'RecBaselineBlocked' } else { $candidates[$candidateId].reasonKey }
         $programs += [ordered]@{
             id = $launcher.id
             catalogId = $launcher.catalogId
-            state = $candidates[$candidateId].state
-            reason = [ordered]@{ko=(Get-WplText -Key $candidates[$candidateId].reasonKey -Language 'ko');en=(Get-WplText -Key $candidates[$candidateId].reasonKey -Language 'en')}
+            state = $state
+            reason = [ordered]@{ko=(Get-WplText -Key $reasonKey -Language 'ko');en=(Get-WplText -Key $reasonKey -Language 'en')}
             risk = $launcher.risk
             launchMode = $launcher.launchMode
             installed = $installed
             launchable = $launchableState
             executable = if ($exe) { $exe.FullName } else { $null }
             arguments = @($launcher.arguments)
-            command = if ($launchableState) { ".\WinPortableLab.ps1 -Action launch -ToolId $($launcher.id)$(if($requiresRisk){' -AcknowledgeRisk'}) -Language auto" } else { $null }
+            command = if ($launchableState) { ".\WinPortableLab.ps1 -Action launch -ToolId $($launcher.id)$(if($requiresRisk){' -AcknowledgeRisk'})$(if([string]$launcher.risk -match '^(?:high-load|very-high-load)$'){' -AcknowledgeManualTemperatureMonitoring'}) -Language auto" } else { $null }
         }
     }
 
@@ -286,7 +302,7 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
 function Invoke-IntegratedCheck([string]$SelectedProfile) {
     Write-Host (Get-WplText -Key IntegratedCheckStart -Language $Language) -ForegroundColor Cyan
     $reportDirectory = & (Join-Path $Root 'scripts\Invoke-Inventory.ps1') -OutputRoot (Join-Path $Root 'reports') -Language $Language
-    $recommendationDirectory = & (Join-Path $Root 'scripts\New-SystemRecommendation.ps1') -Root $Root -Language $Language
+    $recommendationDirectory = & (Join-Path $Root 'scripts\New-SystemRecommendation.ps1') -Root $Root -InventoryDirectory $reportDirectory -Language $Language
     $connection = New-ProgramConnectionPlan -RecommendationDirectory $recommendationDirectory -SelectedProfile $SelectedProfile
 
     if ($InstallMissing) {
@@ -311,11 +327,11 @@ function Show-ProgramPlan([object]$Connection) {
     $Connection.Plan.programs | Select-Object @{n=(Get-WplText -Key ProgramId -Language $Language);e={$_.id}},@{n=(Get-WplText -Key RecommendationState -Language $Language);e={$_.state}},@{n=(Get-WplText -Key Installed -Language $Language);e={$_.installed}},@{n=(Get-WplText -Key Launchable -Language $Language);e={$_.launchable}},@{n=(Get-WplText -Key Risk -Language $Language);e={$_.risk}},@{n=(Get-WplText -Key Reason -Language $Language);e={$_.reason.$Language}} | Format-Table -Wrap -AutoSize
 }
 
-function Open-ToolIds([string[]]$Ids,[switch]$RiskAccepted,[string]$UseLanguage = $Language,[switch]$ContinueOnError) {
+function Open-ToolIds([string[]]$Ids,[switch]$RiskAccepted,[switch]$ManualTemperatureMonitoringAccepted,[string]$UseLanguage = $Language,[switch]$ContinueOnError) {
     $results = [Collections.Generic.List[object]]::new()
     foreach ($id in @($Ids | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
         try {
-            & (Join-Path $Root 'scripts\Open-PortableTool.ps1') -Root $Root -Id $id -AcknowledgeRisk:$RiskAccepted -Language $UseLanguage
+            & (Join-Path $Root 'scripts\Open-PortableTool.ps1') -Root $Root -Id $id -AcknowledgeRisk:$RiskAccepted -AcknowledgeManualTemperatureMonitoring:$ManualTemperatureMonitoringAccepted -Language $UseLanguage
             $results.Add([pscustomobject]@{id=$id;success=$true;error=$null})
         }
         catch {
@@ -577,6 +593,8 @@ function Show-WplGui {
             <TextBlock x:Name="AdminText" Foreground="{DynamicResource InkSubtle}" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap"/>
           </StackPanel>
           <Button x:Name="QuickButton" Style="{StaticResource NavButton}"/>
+          <Button x:Name="StandardButton" Style="{StaticResource NavButton}"/>
+          <Button x:Name="DeepButton" Style="{StaticResource NavButton}"/>
           <Button x:Name="StorageButton" Style="{StaticResource NavButton}"/>
           <Button x:Name="MemoryButton" Style="{StaticResource NavButton}"/>
           <Button x:Name="GpuButton" Style="{StaticResource NavButton}"/>
@@ -604,6 +622,7 @@ function Show-WplGui {
             <TextBlock x:Name="SearchHintText" Foreground="{DynamicResource InkTertiary}" Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12"/>
           </Grid>
           <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
+            <Button x:Name="FilterRecommendedButton" Tag="recommended" Style="{StaticResource FilterChip}"/>
             <Button x:Name="FilterAllButton" Tag="all" Style="{StaticResource FilterChip}"/>
             <Button x:Name="FilterReadyButton" Tag="ready" Style="{StaticResource FilterChip}"/>
             <Button x:Name="FilterMissingButton" Tag="missing" Style="{StaticResource FilterChip}"/>
@@ -678,7 +697,7 @@ function Show-WplGui {
 
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)
-    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','NetworkDriverButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
+    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','StandardButton','DeepButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','NetworkDriverButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterRecommendedButton','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
     $ui = @{}
     foreach ($name in $names) { $ui[$name] = $window.FindName($name) }
 
@@ -698,7 +717,7 @@ function Show-WplGui {
     $script:GuiHardwareDetail = @{}
     $script:GuiUpdateAdvice = @()
     $script:GuiCurrentProfile = $Profile
-    $script:GuiCurrentFilter = 'all'
+    $script:GuiCurrentFilter = 'recommended'
     $script:GuiSnapshotCapturedAt = $null
     $script:GuiIsAdministrator = Test-WplCurrentAdministrator
     $script:GuiCatalogNames = @{}
@@ -716,6 +735,8 @@ function Show-WplGui {
             'deferred-until-baseline-stable' { 'StateDeferredBaseline' }
             'external-boot' { 'StateExternalBoot' }
             'available-in-profile' { 'StateAvailableInProfile' }
+            'catalog-only' { 'StateCatalogOnly' }
+            'diagnostic-baseline-only' { 'StateDiagnosticBaselineOnly' }
             default { 'StateUnknown' }
         }
         return Get-WplText -Key $key -Language $Code
@@ -784,16 +805,7 @@ function Show-WplGui {
         }
         $query = ([string]$ui.SearchBox.Text).Trim()
         $filter = $script:GuiCurrentFilter
-        $visible = @($script:GuiPlan.programs | Where-Object {
-            $matchesQuery = -not $query -or $_.displayName -like "*$query*" -or $_.id -like "*$query*"
-            $matchesState = switch ($filter) {
-                'ready' { [bool]$_.launchable }
-                'missing' { -not [bool]$_.installed }
-                'risky' { [string]$_.risk -notmatch '^read-only' }
-                default { $true }
-            }
-            $matchesQuery -and $matchesState
-        })
+        $visible = @($script:GuiPlan.programs | Where-Object { Test-WplProgramVisible -Program $_ -Filter $filter -Query $query })
         $ui.ProgramGrid.ItemsSource = $null
         $ui.ProgramGrid.ItemsSource = $visible
         $selection = if($selectedId){@($visible | Where-Object { $_.id -eq $selectedId }) | Select-Object -First 1}else{$null}
@@ -811,7 +823,7 @@ function Show-WplGui {
             $ui.LaunchButton.IsEnabled = $false
             return
         }
-        $ui.LaunchButton.IsEnabled = -not ($script:GuiJob -and $script:GuiJob.State -in @('NotStarted','Running'))
+        $busy = $script:GuiJob -and $script:GuiJob.State -in @('NotStarted','Running')
         $code = $script:GuiLanguage
         $path = if ($selected.executable) { [string]$selected.executable } else { '-' }
         $reason = [string]$selected.reason.$code
@@ -825,14 +837,63 @@ function Show-WplGui {
             '',
             $reason
         ) -join "`n"
+        $primaryAction = if ($selected.launchable) { 'launch' } elseif (-not $selected.installed) { 'prepare' } else { 'guide' }
+        $selected | Add-Member -NotePropertyName primaryAction -NotePropertyValue $primaryAction -Force
+        $ui.LaunchButton.Content = Get-WplText -Key $(switch($primaryAction){'launch'{'GuiLaunchSelected'}'prepare'{'GuiPrepareSelected'}default{'GuiOpenRequiredGuide'}}) -Language $code
+        $ui.LaunchButton.IsEnabled = -not $busy
         $ui.DetailScroll.ScrollToTop()
         $ui.ProgramGrid.ScrollIntoView($selected)
+    }
+
+    function Open-GuiToolGuide([object]$Selected) {
+        if (-not $Selected) { throw (Get-WplText -Key GuiSelectTool -Language $script:GuiLanguage) }
+        $documentName = Get-WplToolGuideName ([string]$Selected.catalogId)
+        $quickReference = Join-Path $Root ('docs\{0}\QUICK_USE.md' -f $script:GuiLanguage)
+        $detailed = if ($documentName) { Join-Path $Root ('docs\{0}\tools\{1}.md' -f $script:GuiLanguage,$documentName) } else { $null }
+        if ($detailed -and (Test-Path -LiteralPath $detailed -PathType Leaf)) { Open-WplTextDocument $detailed; return }
+        [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNoToolGuide -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)),$window.Title) | Out-Null
+        Open-WplTextDocument $quickReference
+    }
+
+    function Set-GuiPlanFromCurrentSnapshot {
+        if (-not $script:GuiRecommendationDirectory) { return }
+        Reset-WplToolIndex
+        $connection = New-ProgramConnectionPlan -RecommendationDirectory $script:GuiRecommendationDirectory -SelectedProfile $script:GuiCurrentProfile
+        Set-GuiPlan $connection.JsonPath
+    }
+
+    function Select-GuiExistingExecutable([object]$Selected) {
+        $dialog = New-Object Microsoft.Win32.OpenFileDialog
+        $dialog.Title = Get-WplText -Key GuiChooseExecutable -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)
+        $dialog.Filter = 'Executable files (*.exe)|*.exe'
+        $dialog.CheckFileExists = $true
+        if ($dialog.ShowDialog($window) -ne $true) { return }
+        & (Join-Path $Root 'scripts\Set-WplToolPath.ps1') -Root $Root -Action set -Id ([string]$Selected.id) -Path $dialog.FileName -Language $script:GuiLanguage | Out-Null
+        Set-GuiPlanFromCurrentSnapshot
+        Set-GuiStatusTone 'ok'
+        $ui.StatusText.Text = Get-WplText -Key GuiPathRegistered -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)
+    }
+
+    function Prepare-GuiSelectedTool([object]$Selected) {
+        $package = @(Get-WplPackageDefinitions -Root $Root | Where-Object { [string]$_.catalogId -eq [string]$Selected.catalogId }) | Select-Object -First 1
+        if (-not $package) { Select-GuiExistingExecutable $Selected; return }
+        $message = Get-WplText -Key GuiPrepareChoice -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)
+        $answer = [System.Windows.MessageBox]::Show($message,$window.Title,[System.Windows.MessageBoxButton]::YesNoCancel,[System.Windows.MessageBoxImage]::Information)
+        if ($answer -eq [System.Windows.MessageBoxResult]::Cancel) { return }
+        if ($answer -eq [System.Windows.MessageBoxResult]::No) { Select-GuiExistingExecutable $Selected; return }
+        $installer = Join-Path $Root 'scripts\Install-PortableTools.ps1'
+        $tokens = [Collections.Generic.List[string]]::new()
+        $tokens.AddRange([string[]]@('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$installer,'-Root',$Root,'-Id',[string]$Selected.catalogId,'-Language',$script:GuiLanguage))
+        if ([bool]$package.risk.highLoad) { $tokens.Add('-IncludeHighLoad') }
+        Start-Process powershell.exe -ArgumentList (ConvertTo-WplWindowsCommandLine -ArgumentList $tokens.ToArray())
+        Set-GuiStatusTone 'busy'
+        $ui.StatusText.Text = Get-WplText -Key GuiDownloadStarted -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)
     }
 
     function Set-GuiSnapshotText {
         if($script:GuiSnapshotCapturedAt){
             $stamp=$script:GuiSnapshotCapturedAt.ToString('yyyy-MM-dd HH:mm')
-            $profileKey=switch($script:GuiCurrentProfile){'quick'{'GuiProfileQuick'}'storage'{'GuiProfileStorage'}'memory'{'GuiProfileMemory'}'gpu'{'GuiProfileGpu'}'all'{'GuiProfileAll'}default{'GuiProfileStandard'}}
+            $profileKey=switch($script:GuiCurrentProfile){'quick'{'GuiProfileQuick'}'standard'{'GuiProfileStandard'}'deep'{'GuiProfileDeep'}'storage'{'GuiProfileStorage'}'memory'{'GuiProfileMemory'}'gpu'{'GuiProfileGpu'}'all'{'GuiProfileAll'}default{'GuiProfileStandard'}}
             $profileName=Get-WplText -Key $profileKey -Language $script:GuiLanguage
             $ui.SnapshotText.Text=Get-WplText -Key GuiSnapshotAt -Language $script:GuiLanguage -ArgumentList @($stamp,$profileName)
         }else{
@@ -841,7 +902,7 @@ function Show-WplGui {
     }
 
     function Update-GuiFilterButtons {
-        foreach($button in @($ui.FilterAllButton,$ui.FilterReadyButton,$ui.FilterMissingButton,$ui.FilterRiskButton)){
+        foreach($button in @($ui.FilterRecommendedButton,$ui.FilterAllButton,$ui.FilterReadyButton,$ui.FilterMissingButton,$ui.FilterRiskButton)){
             $active=[string]$button.Tag -eq $script:GuiCurrentFilter
             $button.Background=$window.TryFindResource($(if($active){'Surface3'}else{'Surface1'}))
             $button.BorderBrush=$window.TryFindResource($(if($active){'HairlineStrong'}else{'Hairline'}))
@@ -1234,7 +1295,7 @@ function Show-WplGui {
     }
 
     function Set-GuiAnalysisControls([bool]$Enabled) {
-        foreach ($button in @($ui.QuickButton,$ui.AllButton,$ui.StorageButton,$ui.MemoryButton,$ui.GpuButton,$ui.RefreshButton)) { $button.IsEnabled = $Enabled }
+        foreach ($button in @($ui.QuickButton,$ui.StandardButton,$ui.DeepButton,$ui.AllButton,$ui.StorageButton,$ui.MemoryButton,$ui.GpuButton,$ui.RefreshButton)) { $button.IsEnabled = $Enabled }
         $ui.AnalysisProgressBar.Visibility = if ($Enabled) { [Windows.Visibility]::Collapsed } else { [Windows.Visibility]::Visible }
     }
 
@@ -1657,6 +1718,8 @@ function Show-WplGui {
         $ui.MoreExpander.Header = Get-WplText -Key GuiMore -Language $code
         $ui.RecommendationSectionText.Text = Get-WplText -Key GuiRecommended -Language $code
         $ui.QuickButton.Content = Get-WplText -Key GuiQuick -Language $code
+        $ui.StandardButton.Content = Get-WplText -Key GuiStandard -Language $code
+        $ui.DeepButton.Content = Get-WplText -Key GuiDeep -Language $code
         $ui.AllButton.Content = Get-WplText -Key GuiAll -Language $code
         $ui.StorageButton.Content = Get-WplText -Key GuiStorage -Language $code
         $ui.MemoryButton.Content = Get-WplText -Key GuiMemory -Language $code
@@ -1677,6 +1740,7 @@ function Show-WplGui {
         $ui.ProgramGrid.Columns[2].Header = Get-WplText -Key Risk -Language $code
         $ui.SearchBox.ToolTip = Get-WplText -Key GuiSearchHint -Language $code
         $ui.SearchHintText.Text = Get-WplText -Key GuiSearchPlaceholder -Language $code
+        $ui.FilterRecommendedButton.Content = Get-WplText -Key GuiFilterRecommended -Language $code
         $ui.FilterAllButton.Content = Get-WplText -Key GuiFilterAll -Language $code
         $ui.FilterReadyButton.Content = Get-WplText -Key GuiFilterReady -Language $code
         $ui.FilterMissingButton.Content = Get-WplText -Key GuiFilterMissing -Language $code
@@ -1719,14 +1783,14 @@ function Show-WplGui {
     $disks = @(Get-GuiCim 'Win32_DiskDrive' -All)
     $diskCount = $disks.Count
 
-    if($os){$ui.OsText.Text = "$($os.Caption)`nBuild $($os.BuildNumber)"}else{$ui.OsText.Text = "Windows`nDetection unavailable"}
+    if($os){$ui.OsText.Text = "$($os.Caption)`n$(Get-WplText -Key DetailBuild -Language $script:GuiLanguage) $($os.BuildNumber)"}else{$ui.OsText.Text = "Windows`n$(Get-WplText -Key GuiDetectionUnavailable -Language $script:GuiLanguage)"}
     if($cpu){
         $platform = @("$($board.Manufacturer) $($board.Product)".Trim(),$(if($bios){"BIOS $($bios.SMBIOSBIOSVersion)"}else{$null})) | Where-Object {$_}
         $compactBoard=if($board){[string]$board.Product}else{''}
         $compactBios=if($bios){"BIOS $($bios.SMBIOSBIOSVersion)"}else{''}
         $ui.CpuText.Text = "$($cpu.Name)`n$((@($compactBoard,$compactBios)|Where-Object{$_}) -join ' · ')"
-    }else{$ui.CpuText.Text = 'Detection unavailable'}
-    $ui.GpuText.Text = if($gpu.Count){@($gpu | ForEach-Object Name) -join [Environment]::NewLine}else{'Detection unavailable'}
+    }else{$ui.CpuText.Text = Get-WplText -Key GuiDetectionUnavailable -Language $script:GuiLanguage}
+    $ui.GpuText.Text = if($gpu.Count){@($gpu | ForEach-Object Name) -join [Environment]::NewLine}else{Get-WplText -Key GuiDetectionUnavailable -Language $script:GuiLanguage}
     $ui.OsText.ToolTip=$ui.OsText.Text
     $ui.CpuText.ToolTip=$ui.CpuText.Text
     $ui.GpuText.ToolTip=$ui.GpuText.Text
@@ -1747,7 +1811,7 @@ function Show-WplGui {
         }) -join [Environment]::NewLine
         $ui.MemoryText.Text = "$($script:GuiMemoryHardwareText)`n$(Get-WplText -Key GuiStorageDevices -Language $script:GuiLanguage -ArgumentList @($diskCount))"
         $ui.MemoryText.ToolTip = $script:GuiMemoryToolTip
-    }else{$ui.MemoryText.Text = "Detection unavailable`n$(Get-WplText -Key GuiStorageDevices -Language $script:GuiLanguage -ArgumentList @($diskCount))"}
+    }else{$ui.MemoryText.Text = "$(Get-WplText -Key GuiDetectionUnavailable -Language $script:GuiLanguage)`n$(Get-WplText -Key GuiStorageDevices -Language $script:GuiLanguage -ArgumentList @($diskCount))"}
 
     # Detail payloads for the clickable hardware cards. Collected once with the
     # snapshot so opening a card never re-queries CIM.
@@ -1758,6 +1822,10 @@ function Show-WplGui {
         $text = [string]$value
         if ([string]::IsNullOrWhiteSpace($text)) { return }
         $Target.Add(('{0}: {1}' -f $Label,$text.Trim()))
+    }
+
+    function Get-GuiDetailLabel([string]$Key) {
+        return Get-WplText -Key $Key -Language $script:GuiLanguage
     }
 
     function ConvertTo-LocalDate($Value) {
@@ -1771,83 +1839,83 @@ function Show-WplGui {
     # OS
     $osDetail = [Collections.Generic.List[string]]::new()
     if ($os) {
-        Add-DetailLine $osDetail 'Edition' $os.Caption
-        Add-DetailLine $osDetail 'Version' $os.Version
-        Add-DetailLine $osDetail 'Build' $os.BuildNumber
-        Add-DetailLine $osDetail 'Architecture' $os.OSArchitecture
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailEdition') $os.Caption
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailVersion') $os.Version
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailBuild') $os.BuildNumber
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailArchitecture') $os.OSArchitecture
         $installed = ConvertTo-LocalDate $os.InstallDate
-        if ($installed) { Add-DetailLine $osDetail 'Installed' $installed.ToString('yyyy-MM-dd') }
+        if ($installed) { Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailInstalled') $installed.ToString('yyyy-MM-dd') }
         $booted = ConvertTo-LocalDate $os.LastBootUpTime
-        if ($booted) { Add-DetailLine $osDetail 'Last boot' $booted.ToString('yyyy-MM-dd HH:mm') }
-        Add-DetailLine $osDetail 'System drive' $os.SystemDrive
-        Add-DetailLine $osDetail 'Windows directory' $os.WindowsDirectory
-        Add-DetailLine $osDetail 'Locale' $os.Locale
+        if ($booted) { Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailLastBoot') $booted.ToString('yyyy-MM-dd HH:mm') }
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailSystemDrive') $os.SystemDrive
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailWindowsDirectory') $os.WindowsDirectory
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailLocale') $os.Locale
     }
     if ($system) {
-        Add-DetailLine $osDetail 'Computer' $system.Manufacturer
-        Add-DetailLine $osDetail 'Model' $system.Model
-        Add-DetailLine $osDetail 'System type' $system.SystemType
-        Add-DetailLine $osDetail 'Hypervisor present' $system.HypervisorPresent
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailComputer') $system.Manufacturer
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailModel') $system.Model
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailSystemType') $system.SystemType
+        Add-DetailLine $osDetail (Get-GuiDetailLabel 'DetailHypervisor') $system.HypervisorPresent
     }
     $script:GuiHardwareDetail['os'] = $osDetail
 
     # CPU and mainboard
     $cpuDetail = [Collections.Generic.List[string]]::new()
     if ($cpu) {
-        Add-DetailLine $cpuDetail 'Processor' $cpu.Name
-        Add-DetailLine $cpuDetail 'Vendor' $cpu.Manufacturer
-        Add-DetailLine $cpuDetail 'Cores' $cpu.NumberOfCores
-        Add-DetailLine $cpuDetail 'Logical processors' $cpu.NumberOfLogicalProcessors
-        Add-DetailLine $cpuDetail 'Base clock (MHz)' $cpu.MaxClockSpeed
-        Add-DetailLine $cpuDetail 'Socket' $cpu.SocketDesignation
-        Add-DetailLine $cpuDetail 'Virtualization firmware' $cpu.VirtualizationFirmwareEnabled
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailProcessor') $cpu.Name
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailVendor') $cpu.Manufacturer
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailCores') $cpu.NumberOfCores
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailLogicalProcessors') $cpu.NumberOfLogicalProcessors
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailBaseClock') $cpu.MaxClockSpeed
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailSocket') $cpu.SocketDesignation
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailVirtualization') $cpu.VirtualizationFirmwareEnabled
     }
     if ($board) {
-        Add-DetailLine $cpuDetail 'Mainboard vendor' $board.Manufacturer
-        Add-DetailLine $cpuDetail 'Mainboard model' $board.Product
-        Add-DetailLine $cpuDetail 'Mainboard revision' $board.Version
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailMainboardVendor') $board.Manufacturer
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailMainboardModel') $board.Product
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailMainboardRevision') $board.Version
     }
     if ($bios) {
-        Add-DetailLine $cpuDetail 'BIOS version' $bios.SMBIOSBIOSVersion
-        Add-DetailLine $cpuDetail 'BIOS vendor' $bios.Manufacturer
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailBiosVersion') $bios.SMBIOSBIOSVersion
+        Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailBiosVendor') $bios.Manufacturer
         $biosDate = ConvertTo-LocalDate $bios.ReleaseDate
-        if ($biosDate) { Add-DetailLine $cpuDetail 'BIOS release' $biosDate.ToString('yyyy-MM-dd') }
+        if ($biosDate) { Add-DetailLine $cpuDetail (Get-GuiDetailLabel 'DetailBiosRelease') $biosDate.ToString('yyyy-MM-dd') }
     }
     $script:GuiHardwareDetail['cpu'] = $cpuDetail
 
     # GPU
     $gpuDetail = [Collections.Generic.List[string]]::new()
     foreach ($adapter in $gpu) {
-        Add-DetailLine $gpuDetail 'Adapter' $adapter.Name
-        Add-DetailLine $gpuDetail '  Vendor' $adapter.AdapterCompatibility
-        Add-DetailLine $gpuDetail '  Driver version' $adapter.DriverVersion
+        Add-DetailLine $gpuDetail (Get-GuiDetailLabel 'DetailAdapter') $adapter.Name
+        Add-DetailLine $gpuDetail ('  ' + (Get-GuiDetailLabel 'DetailVendor')) $adapter.AdapterCompatibility
+        Add-DetailLine $gpuDetail ('  ' + (Get-GuiDetailLabel 'DetailDriverVersion')) $adapter.DriverVersion
         $driverDate = ConvertTo-LocalDate $adapter.DriverDate
-        if ($driverDate) { Add-DetailLine $gpuDetail '  Driver date' $driverDate.ToString('yyyy-MM-dd') }
-        Add-DetailLine $gpuDetail '  Video mode' $adapter.VideoModeDescription
+        if ($driverDate) { Add-DetailLine $gpuDetail ('  ' + (Get-GuiDetailLabel 'DetailDriverDate')) $driverDate.ToString('yyyy-MM-dd') }
+        Add-DetailLine $gpuDetail ('  ' + (Get-GuiDetailLabel 'DetailVideoMode')) $adapter.VideoModeDescription
         if ($adapter.AdapterRAM -and [int64]$adapter.AdapterRAM -gt 0) {
-            Add-DetailLine $gpuDetail '  Reported VRAM' ("{0} MB" -f [math]::Round([int64]$adapter.AdapterRAM / 1MB,0))
+            Add-DetailLine $gpuDetail ('  ' + (Get-GuiDetailLabel 'DetailReportedVram')) ("{0} MB" -f [math]::Round([int64]$adapter.AdapterRAM / 1MB,0))
         }
     }
     $script:GuiHardwareDetail['gpu'] = $gpuDetail
 
     # Memory and storage
     $memoryDetail = [Collections.Generic.List[string]]::new()
-    if ($script:GuiMemoryGb) { Add-DetailLine $memoryDetail 'Total' ("{0} GB" -f $script:GuiMemoryGb) }
+    if ($script:GuiMemoryGb) { Add-DetailLine $memoryDetail (Get-GuiDetailLabel 'DetailTotal') ("{0} GB" -f $script:GuiMemoryGb) }
     foreach ($module in $memoryModules) {
-        $memoryDetail.Add(('Slot {0} [{1}]' -f $module.DeviceLocator,$module.BankLabel))
-        Add-DetailLine $memoryDetail '  Capacity' ("{0} GB" -f [math]::Round($module.Capacity / 1GB,0))
-        Add-DetailLine $memoryDetail '  Vendor' $module.Manufacturer
-        Add-DetailLine $memoryDetail '  Part number' $module.PartNumber
-        Add-DetailLine $memoryDetail '  Configured' ("{0} MT/s" -f $module.ConfiguredClockSpeed)
-        Add-DetailLine $memoryDetail '  Rated' ("{0} MT/s" -f $module.Speed)
-        Add-DetailLine $memoryDetail '  Voltage' ("{0} mV" -f $module.ConfiguredVoltage)
+        $memoryDetail.Add(('{0} {1} [{2}]' -f (Get-GuiDetailLabel 'DetailSlot'),$module.DeviceLocator,$module.BankLabel))
+        Add-DetailLine $memoryDetail ('  ' + (Get-GuiDetailLabel 'DetailCapacity')) ("{0} GB" -f [math]::Round($module.Capacity / 1GB,0))
+        Add-DetailLine $memoryDetail ('  ' + (Get-GuiDetailLabel 'DetailVendor')) $module.Manufacturer
+        Add-DetailLine $memoryDetail ('  ' + (Get-GuiDetailLabel 'DetailPartNumber')) $module.PartNumber
+        Add-DetailLine $memoryDetail ('  ' + (Get-GuiDetailLabel 'DetailConfigured')) ("{0} MT/s" -f $module.ConfiguredClockSpeed)
+        Add-DetailLine $memoryDetail ('  ' + (Get-GuiDetailLabel 'DetailRated')) ("{0} MT/s" -f $module.Speed)
+        Add-DetailLine $memoryDetail ('  ' + (Get-GuiDetailLabel 'DetailVoltage')) ("{0} mV" -f $module.ConfiguredVoltage)
     }
     foreach ($disk in $disks) {
-        $memoryDetail.Add(('Disk {0}' -f ([string]$disk.Model).Trim()))
-        Add-DetailLine $memoryDetail '  Interface' $disk.InterfaceType
-        if ($disk.Size) { Add-DetailLine $memoryDetail '  Size' ("{0} GB" -f [math]::Round([int64]$disk.Size / 1GB,1)) }
-        Add-DetailLine $memoryDetail '  Firmware' $disk.FirmwareRevision
-        Add-DetailLine $memoryDetail '  Status' $disk.Status
+        $memoryDetail.Add(('{0} {1}' -f (Get-GuiDetailLabel 'DetailDisk'),([string]$disk.Model).Trim()))
+        Add-DetailLine $memoryDetail ('  ' + (Get-GuiDetailLabel 'DetailInterface')) $disk.InterfaceType
+        if ($disk.Size) { Add-DetailLine $memoryDetail ('  ' + (Get-GuiDetailLabel 'DetailSize')) ("{0} GB" -f [math]::Round([int64]$disk.Size / 1GB,1)) }
+        Add-DetailLine $memoryDetail ('  ' + (Get-GuiDetailLabel 'DetailFirmware')) $disk.FirmwareRevision
+        Add-DetailLine $memoryDetail ('  ' + (Get-GuiDetailLabel 'DetailStatus')) $disk.Status
     }
     $script:GuiHardwareDetail['memory'] = $memoryDetail
 
@@ -1874,8 +1942,9 @@ function Show-WplGui {
         $ui.LaunchButton.IsEnabled = $false
         Set-GuiSelectionDetails
         Set-GuiStatusTone 'ok'
-        $readyCount = @($script:GuiPlan.programs | Where-Object { $_.installed -and $_.launchable }).Count
-        $totalCount = @($script:GuiPlan.programs).Count
+        $recommendedPrograms = @($script:GuiPlan.programs | Where-Object { $_.state -ne 'catalog-only' })
+        $readyCount = @($recommendedPrograms | Where-Object { $_.installed -and $_.launchable }).Count
+        $totalCount = $recommendedPrograms.Count
         $statusKey = if ($readyCount -eq $totalCount) { 'GuiCheckComplete' } else { 'GuiCheckPartial' }
         $arguments = if ($statusKey -eq 'GuiCheckComplete') { @($totalCount) } else { @($readyCount,$totalCount) }
         $ui.StatusText.Text = Get-WplText -Key $statusKey -Language $script:GuiLanguage -ArgumentList $arguments
@@ -1995,10 +2064,12 @@ function Show-WplGui {
     $ui.SidebarScroll.Add_PreviewMouseWheel({param($sender,$eventArgs);Move-GuiScroll $sender $eventArgs.Delta;$eventArgs.Handled=$true})
     $ui.DetailScroll.Add_PreviewMouseWheel({param($sender,$eventArgs);Move-GuiScroll $sender $eventArgs.Delta;$eventArgs.Handled=$true})
     $ui.SearchBox.Add_TextChanged({$ui.SearchHintText.Visibility=if([string]::IsNullOrEmpty($ui.SearchBox.Text)){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed};Update-GuiProgramPresentation})
-    foreach($filterButton in @($ui.FilterAllButton,$ui.FilterReadyButton,$ui.FilterMissingButton,$ui.FilterRiskButton)){
+    foreach($filterButton in @($ui.FilterRecommendedButton,$ui.FilterAllButton,$ui.FilterReadyButton,$ui.FilterMissingButton,$ui.FilterRiskButton)){
         $filterButton.Add_Click({param($sender,$eventArgs);$script:GuiCurrentFilter=[string]$sender.Tag;Update-GuiFilterButtons;Update-GuiProgramPresentation})
     }
     $ui.QuickButton.Add_Click({ Set-GuiProfileFromSnapshot 'quick' })
+    $ui.StandardButton.Add_Click({ Set-GuiProfileFromSnapshot 'standard' })
+    $ui.DeepButton.Add_Click({ Set-GuiProfileFromSnapshot 'deep' })
     $ui.AllButton.Add_Click({ Set-GuiProfileFromSnapshot 'all' })
     $ui.StorageButton.Add_Click({ Set-GuiProfileFromSnapshot 'storage' })
     $ui.MemoryButton.Add_Click({ Set-GuiProfileFromSnapshot 'memory' })
@@ -2012,7 +2083,16 @@ function Show-WplGui {
     $ui.LaunchButton.Add_Click({
         $selected = $ui.ProgramGrid.SelectedItem
         if (-not $selected) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiSelectTool -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
-       if (-not $selected.launchable) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNotLaunchable -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
+        if ([string]$selected.primaryAction -eq 'prepare') {
+            try { Prepare-GuiSelectedTool $selected }
+            catch { [System.Windows.MessageBox]::Show($_.Exception.Message,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null }
+            return
+        }
+        if ([string]$selected.primaryAction -eq 'guide' -or -not $selected.launchable) {
+            try { Open-GuiToolGuide $selected }
+            catch { [System.Windows.MessageBox]::Show($_.Exception.Message,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null }
+            return
+        }
         # An overridden launcher runs a binary the bundled tree does not own, so
         # it is confirmed even when the catalog risk tier is read-only.
         $selectedTrust = Get-WplToolOverrideTrust -Root $Root -LauncherId ([string]$selected.id)
@@ -2022,11 +2102,15 @@ function Show-WplGui {
             if ($overrideAnswer -ne [System.Windows.MessageBoxResult]::Yes) { return }
         }
         $riskAccepted = $false
+        $manualTemperatureAccepted = $false
         if ([string]$selected.risk -notmatch '^read-only') {
-            $message = Get-WplText -Key GuiRiskConfirm -Language $script:GuiLanguage -ArgumentList @($selected.riskText)
+            $highLoad = [string]$selected.risk -match '^(?:high-load|very-high-load)$'
+            $messageKey = if($highLoad){'GuiHighLoadConfirm'}else{'GuiRiskConfirm'}
+            $message = Get-WplText -Key $messageKey -Language $script:GuiLanguage -ArgumentList @($selected.riskText)
             $answer = [System.Windows.MessageBox]::Show($message,$window.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Warning)
             if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
             $riskAccepted = $true
+            $manualTemperatureAccepted = $highLoad
         }
         $preview = @(
             (Get-WplText -Key GuiLaunchPreview -Language $script:GuiLanguage),
@@ -2050,6 +2134,7 @@ function Show-WplGui {
             # extra parameters into an elevated powershell.exe invocation.
             $sessionTokens = [Collections.Generic.List[string]]::new()
             $sessionTokens.AddRange([string[]]@('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$sessionScript,'-Root',$Root,'-LauncherId',[string]$selected.id,'-Start','-AcceptRisk'))
+            if($manualTemperatureAccepted){$sessionTokens.Add('-AcknowledgeManualTemperatureMonitoring')}
             if($sessionWindowStyle -eq 'Normal'){$sessionTokens.Add('-PauseOnExit')}
             $launchSignal=$null
             if($sessionWindowStyle -eq 'Hidden'){
@@ -2083,52 +2168,20 @@ function Show-WplGui {
     $ui.SafeLaunchButton.Add_Click({
         if (-not $script:GuiPlan) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNoPlan -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
         $safe = @(Get-WplSafeLaunchIds $script:GuiPlan)
-       if (-not $safe.Count) { [System.Windows.MessageBox]::Show((Get-WplText -Key NoSafeLaunch -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
-        # A read-only tool repointed by the per-machine override file is not safe
-        # to start without a prompt, so each override is confirmed individually.
-        $confirmedSafe = [Collections.Generic.List[string]]::new()
-        foreach ($safeId in $safe) {
-            $trust = Get-WplToolOverrideTrust -Root $Root -LauncherId $safeId
-            if (-not $trust -or $trust.IsTrusted) { $confirmedSafe.Add($safeId); continue }
-            $overrideMessage = Get-WplText -Key GuiOverrideConfirm -Language $script:GuiLanguage -ArgumentList @($safeId,$trust.Path,$trust.InsideToolsRoot,$trust.SignatureStatus)
-            $overrideAnswer = [System.Windows.MessageBox]::Show($overrideMessage,$window.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Warning)
-            if ($overrideAnswer -eq [System.Windows.MessageBoxResult]::Yes) { $confirmedSafe.Add($safeId) }
-        }
-        if (-not $confirmedSafe.Count) { return }
-        $safe = @($confirmedSafe)
-        $message = Get-WplText -Key GuiSafeLaunchConfirm -Language $script:GuiLanguage -ArgumentList @($safe.Count,($safe -join "`n"))
-        $answer = [System.Windows.MessageBox]::Show($message,$window.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Information)
-        if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
-        $ui.SafeLaunchButton.IsEnabled = $false
-        Set-GuiStatusTone 'busy'
-        $ui.StatusText.Text = Get-WplText -Key GuiSafeLaunchRunning -Language $script:GuiLanguage -ArgumentList @($safe.Count)
-        try {
-            $results = @(Open-ToolIds -Ids $safe -UseLanguage $script:GuiLanguage -ContinueOnError)
-            $failed = @($results | Where-Object { -not $_.success })
-            try {
-                [ordered]@{createdAt=(Get-Date).ToString('o');requested=@($safe);results=$results} |
-                    ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $Root 'logs\safe-launch-latest.json') -Encoding utf8
-            }
-            catch { }
-            if ($failed.Count) {
-                Set-GuiStatusTone 'busy'
-                $ui.StatusText.Text = Get-WplText -Key GuiSafeLaunchPartial -Language $script:GuiLanguage -ArgumentList @(($results.Count-$failed.Count),$failed.Count)
-                $details = @($failed | ForEach-Object { "- $($_.id): $($_.error)" }) -join [Environment]::NewLine
-                [System.Windows.MessageBox]::Show($ui.StatusText.Text + [Environment]::NewLine + [Environment]::NewLine + $details,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Warning) | Out-Null
-            }
-            else {
-                Set-GuiStatusTone 'ok'
-                $ui.StatusText.Text = Get-WplText -Key GuiSafeLaunchCompleted -Language $script:GuiLanguage -ArgumentList @($results.Count)
-            }
-        }
-        catch {
-            Set-GuiStatusTone 'fail'
-            $ui.StatusText.Text = Get-WplText -Key GuiLaunchFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
-            [System.Windows.MessageBox]::Show($_.Exception.Message,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null
-        }
-        finally {
-            $ui.SafeLaunchButton.IsEnabled = $true
-        }
+        if (-not $safe.Count) { [System.Windows.MessageBox]::Show((Get-WplText -Key NoSafeLaunch -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
+        # Guided selection replaces the old batch launcher. One click now chooses
+        # one next step and never opens a wall of diagnostic windows.
+        $nextId = if($ui.ProgramGrid.SelectedItem -and [string]$ui.ProgramGrid.SelectedItem.id -in $safe){
+            $currentIndex=[array]::IndexOf([object[]]$safe,[string]$ui.ProgramGrid.SelectedItem.id)
+            $safe[($currentIndex + 1) % $safe.Count]
+        }else{$safe[0]}
+        $script:GuiCurrentFilter='recommended'
+        Update-GuiFilterButtons
+        Update-GuiProgramPresentation
+        $next = @($ui.ProgramGrid.ItemsSource | Where-Object { [string]$_.id -eq [string]$nextId }) | Select-Object -First 1
+        if($next){$ui.ProgramGrid.SelectedItem=$next;$ui.ProgramGrid.ScrollIntoView($next);Set-GuiSelectionDetails}
+        Set-GuiStatusTone 'ok'
+        $ui.StatusText.Text = Get-WplText -Key GuiNextRecommendationSelected -Language $script:GuiLanguage -ArgumentList @([string]$next.displayName)
     })
     $ui.GuideButton.Add_Click({
         if (-not $script:GuiRecommendationDirectory) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNoPlan -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
@@ -2138,13 +2191,8 @@ function Show-WplGui {
     $ui.ToolGuideButton.Add_Click({
         $selected = $ui.ProgramGrid.SelectedItem
         if (-not $selected) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiSelectTool -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
-        $documentName = Get-WplToolGuideName ([string]$selected.catalogId)
-        $quickReference = Join-Path $Root ('docs\{0}\QUICK_USE.md' -f $script:GuiLanguage)
-        $detailed = if ($documentName) { Join-Path $Root ('docs\{0}\tools\{1}.md' -f $script:GuiLanguage,$documentName) } else { $null }
         try {
-            if ($detailed -and (Test-Path -LiteralPath $detailed -PathType Leaf)) { Open-WplTextDocument $detailed; return }
-            [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNoToolGuide -Language $script:GuiLanguage -ArgumentList @([string]$selected.displayName)),$window.Title) | Out-Null
-            Open-WplTextDocument $quickReference
+            Open-GuiToolGuide $selected
         }
         catch {
             [System.Windows.MessageBox]::Show($_.Exception.Message,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null
@@ -2239,7 +2287,7 @@ if ($Action -eq 'validate') {
 
 if ($Action -eq 'launch') {
     if (-not $ToolId) { throw 'ToolId is required for Action=launch.' }
-    Open-ToolIds -Ids $ToolId -RiskAccepted:$AcknowledgeRisk
+    Open-ToolIds -Ids $ToolId -RiskAccepted:$AcknowledgeRisk -ManualTemperatureMonitoringAccepted:$AcknowledgeManualTemperatureMonitoring
     return
 }
 
@@ -2252,7 +2300,7 @@ if ($Action -in @('check','list')) {
 if ($Action -eq 'launch-recommended') {
     $safe = @(Get-WplSafeLaunchIds $result.Connection.Plan)
     if (-not $safe.Count) { Write-Host (Get-WplText -Key NoSafeLaunch -Language $Language) -ForegroundColor Yellow; return }
-    Open-ToolIds -Ids $safe
+    Write-Host (Get-WplText -Key BulkLaunchDisabled -Language $Language -ArgumentList @($safe -join ', ')) -ForegroundColor Yellow
     return
 }
 
@@ -2264,9 +2312,9 @@ while ($true) {
         '1' { Show-ProgramPlan $result.Connection }
         '2' {
             $safe = @(Get-WplSafeLaunchIds $result.Connection.Plan)
-            if ($safe.Count) { Open-ToolIds -Ids $safe } else { Write-Host (Get-WplText -Key NoSafeLaunch -Language $Language) -ForegroundColor Yellow }
+            if ($safe.Count) { Write-Host (Get-WplText -Key BulkLaunchDisabled -Language $Language -ArgumentList @($safe -join ', ')) -ForegroundColor Yellow } else { Write-Host (Get-WplText -Key NoSafeLaunch -Language $Language) -ForegroundColor Yellow }
         }
-        '3' { $selectedId = Read-Host (Get-WplText -Key EnterToolId -Language $Language); if ($selectedId) { Open-ToolIds -Ids @($selectedId) -RiskAccepted:$AcknowledgeRisk } }
+        '3' { $selectedId = Read-Host (Get-WplText -Key EnterToolId -Language $Language); if ($selectedId) { Open-ToolIds -Ids @($selectedId) -RiskAccepted:$AcknowledgeRisk -ManualTemperatureMonitoringAccepted:$AcknowledgeManualTemperatureMonitoring } }
         '4' { Start-Process explorer.exe -ArgumentList @($result.ReportDirectory) }
         '5' { Open-WplTextDocument (Join-Path $result.RecommendationDirectory "recommended-programs.$Language.md") }
         '0' { break }

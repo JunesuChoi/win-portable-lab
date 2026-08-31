@@ -30,6 +30,7 @@ function Get-WplText {
         UnknownLaunchId=@{ko='알 수 없는 실행 도구 ID: {0}';en='Unknown launchable tool id: {0}'}
         NotInstalled=@{ko='도구가 설치되지 않았습니다: {0}';en='Tool is not installed: {0}'}
         RiskBlocked=@{ko="'{0}'의 위험 등급은 '{1}'입니다. 관련 안내서를 읽은 뒤 -AcknowledgeRisk로 다시 실행하십시오.";en="'{0}' has risk '{1}'. Re-run with -AcknowledgeRisk after reading the applicable guide."}
+        ManualTemperatureMonitoringRequired=@{ko="'{0}'은(는) 고부하 도구입니다. HWiNFO 등으로 온도를 직접 감시할 준비를 한 뒤 -AcknowledgeManualTemperatureMonitoring과 함께 다시 실행하십시오.";en="'{0}' is a high-load tool. Prepare visible temperature monitoring in HWiNFO or an equivalent sensor view, then re-run with -AcknowledgeManualTemperatureMonitoring."}
         Started=@{ko='{0} 실행: {1}';en='Started {0} from {1}'}
         ExternalBootOnly=@{ko="'{0}'은 부팅형 도구입니다. 실행 파일 대신 안내서에 따라 USB 부팅 미디어를 준비하십시오.";en="'{0}' is a bootable tool. Prepare USB boot media using the guide instead of launching an executable."}
         UnknownToolId=@{ko='알 수 없는 도구 ID: {0}';en='Unknown tool id: {0}'}
@@ -53,9 +54,10 @@ function Get-WplText {
         RecommendedPrograms=@{ko='시스템 맞춤 권장 프로그램';en='System-specific recommended programs'}
         DetectedSummary=@{ko='감지 요약';en='Detected summary'}
         ProgramConnections=@{ko='프로그램 연결';en='Program connections'}
-        MenuPrompt=@{ko='1=목록, 2=안전 권장 프로그램 실행, 3=ID로 실행, 4=보고서 열기, 5=권장 안내서 열기, 0=종료';en='1=list, 2=launch safe recommendations, 3=launch by id, 4=open report, 5=open recommendation guide, 0=exit'}
+        MenuPrompt=@{ko='1=목록, 2=다음 권장 프로그램 보기, 3=ID로 실행, 4=보고서 열기, 5=권장 안내서 열기, 0=종료';en='1=list, 2=show next recommendations, 3=launch by id, 4=open report, 5=open recommendation guide, 0=exit'}
         EnterToolId=@{ko='실행할 프로그램 ID를 입력하십시오';en='Enter the program ID to launch'}
         NoSafeLaunch=@{ko='자동으로 열 수 있는 읽기 전용 권장 프로그램이 없습니다.';en='No read-only recommended GUI program is available to launch.'}
+        BulkLaunchDisabled=@{ko='여러 진단 프로그램의 일괄 실행은 비활성화했습니다. 다음 후보를 하나씩 검토해 ID로 실행하십시오: {0}';en='Batch launch is disabled. Review and launch one recommendation at a time by id: {0}'}
         MissingPrograms=@{ko='확보되지 않은 권장 프로그램: {0}';en='Missing recommended programs: {0}'}
         ProgramPlanValidationPassed=@{ko='권장 프로그램 연결 검증 통과. 항목: {0}';en='Recommended program connection validation passed. Items: {0}'}
         RecIdentity=@{ko='CPU, 메인보드와 메모리 구성을 읽기 전용으로 확인합니다.';en='Read-only identification of CPU, mainboard and memory configuration.'}
@@ -89,6 +91,8 @@ function Get-WplText {
         RecIntelXtu=@{ko='지원되는 언락 Intel CPU의 설치형 튜닝 도구이며 기준선 안정화 후에만 검토합니다.';en='Installed tuning utility for supported unlocked Intel CPUs; review only after a stable baseline.'}
         RecRyzenMaster=@{ko='지원되는 AMD Ryzen CPU의 설치형 튜닝 도구이며 기준선 안정화 후에만 검토합니다.';en='Installed tuning utility for supported AMD Ryzen CPUs; review only after a stable baseline.'}
         RecCrash=@{ko='미니덤프가 있을 때 빠르게 확인하고 디버거로 최종 검증합니다.';en='Quickly triages minidumps before debugger confirmation.'}
+        RecCatalogOnly=@{ko='전체 도구 목록에서 수동으로 선택할 수 있습니다. 현재 시스템의 우선 권장 항목은 아닙니다.';en='Available for manual selection in the full catalogue; it is not a priority recommendation for this system.'}
+        RecBaselineBlocked=@{ko='최근 WHEA 또는 예기치 않은 전원 종료 기록이 있어 고부하·쓰기·튜닝 검사를 보류합니다. 기본 설정에서 원인을 먼저 확인하십시오.';en='Recent WHEA or unexpected-power evidence defers load, write, and tuning tests. Diagnose the machine at stock settings first.'}
         GuiBrand=@{ko='원팩 포터블 코리아';en='ONEPACK PORTABLE KOREA'}
         GuiDescription=@{ko='Windows 11 현장 진단, 시스템 정보, SSD 더티 테스트, CPU·GPU·RAM 안정성 도구를 하나의 휴대용 GitHub 프로젝트로 관리합니다.';en='A portable GitHub project for Windows 11 field diagnostics, system inventory, SSD dirty tests, and CPU, GPU and RAM stability tools.'}
         GuiBadge=@{ko='PORTABLE DIAGNOSTIC CONSOLE';en='PORTABLE DIAGNOSTIC CONSOLE'}
@@ -104,15 +108,19 @@ function Get-WplText {
         GuiProfileGpu=@{ko='GPU';en='GPU'}
         GuiProfileAll=@{ko='전체';en='All'}
         GuiProfileStandard=@{ko='표준';en='Standard'}
+        GuiProfileDeep=@{ko='심층';en='Deep'}
         GuiRecommended=@{ko='시스템 맞춤 권장 프로그램';en='SYSTEM-SPECIFIC RECOMMENDATIONS'}
         GuiQuick=@{ko='빠른 시스템 점검';en='Quick system check'}
+        GuiStandard=@{ko='표준 안정성 점검';en='Standard stability check'}
+        GuiDeep=@{ko='심층 오버클럭 검증';en='Deep overclock validation'}
         GuiAll=@{ko='전체 권장 분석';en='Full recommendation scan'}
         GuiStorage=@{ko='SSD · 저장장치';en='SSD and storage'}
         GuiMemory=@{ko='CPU · RAM 안정성';en='CPU and RAM stability'}
         GuiGpu=@{ko='GPU · DDU';en='GPU and DDU'}
         GuiRefreshSystem=@{ko='시스템 정보 새로고침';en='Refresh system information'}
         GuiReusingSnapshot=@{ko='기존 시스템 스냅샷으로 권장 목록을 전환합니다...';en='Switching recommendations using the existing system snapshot...'}
-        GuiSafeLaunch=@{ko='안전 권장 도구 실행';en='Launch safe recommendations'}
+        GuiSafeLaunch=@{ko='다음 권장 도구 선택';en='Select next recommendation'}
+        GuiNextRecommendationSelected=@{ko='{0}을(를) 다음 점검 후보로 선택했습니다. 설명을 확인한 뒤 개별 실행하십시오.';en='Selected {0} as the next check. Review its details, then launch it individually.'}
         GuiSafeLaunchConfirm=@{ko="읽기 전용 권장 도구 {0}개를 실행합니다:`n`n{1}`n`n계속하시겠습니까?";en="Launch {0} read-only recommended tools?`n`n{1}`n`nContinue?"}
         GuiSafeLaunchRunning=@{ko='읽기 전용 권장 도구 {0}개를 순서대로 실행하고 있습니다...';en='Launching {0} read-only recommendations in sequence...'}
         GuiSafeLaunchCompleted=@{ko='읽기 전용 권장 도구 {0}개를 실행했습니다.';en='Launched {0} read-only recommendations.'}
@@ -122,6 +130,7 @@ function Get-WplText {
         GuiNoResults=@{ko='아직 생성된 점검 결과가 없습니다.';en='No diagnostic results have been created yet.'}
         GuiSearchHint=@{ko='프로그램 이름 또는 ID 검색';en='Search by program name or ID'}
         GuiSearchPlaceholder=@{ko='프로그램 이름 또는 ID를 검색하세요';en='Search program name or ID'}
+        GuiFilterRecommended=@{ko='권장 항목';en='Recommended'}
         GuiFilterAll=@{ko='전체 상태';en='All states'}
         GuiFilterReady=@{ko='실행 준비됨';en='Ready to launch'}
         GuiFilterMissing=@{ko='확보 필요';en='Missing'}
@@ -129,6 +138,12 @@ function Get-WplText {
         GuiGithub=@{ko='GitHub 프로젝트';en='GitHub project'}
         GuiValidate=@{ko='도구 무결성 검증';en='Validate tool integrity'}
         GuiLaunchSelected=@{ko='선택 프로그램 실행';en='Launch selected tool'}
+        GuiPrepareSelected=@{ko='도구 준비';en='Prepare tool'}
+        GuiOpenRequiredGuide=@{ko='필요 조건 확인';en='Review requirements'}
+        GuiChooseExecutable=@{ko='{0} 실행 파일 선택';en='Choose the {0} executable'}
+        GuiPathRegistered=@{ko='{0} 사용자 경로를 등록하고 목록을 갱신했습니다.';en='Registered the user path for {0} and refreshed the list.'}
+        GuiPrepareChoice=@{ko="{0}을(를) 공식 고정 해시 경로에서 다운로드하려면 '예', 이미 보유한 실행 파일을 등록하려면 '아니요', 취소하려면 '취소'를 누르십시오.";en="For {0}, choose Yes to download from the pinned source, No to register an executable you already have, or Cancel."}
+        GuiDownloadStarted=@{ko='{0} 다운로드·검증 창을 열었습니다. 완료 후 시스템 정보를 새로고침하십시오.';en='Opened the download and verification window for {0}. Refresh system information after it completes.'}
         GuiOpenGuide=@{ko='권장 안내서 열기';en='Open recommendation guide'}
         GuiOpenToolGuide=@{ko='선택 도구 사용법';en='Selected tool guide'}
         GuiDetailTitleOs=@{ko='운영체제 상세 정보';en='Operating system detail'}
@@ -234,6 +249,7 @@ function Get-WplText {
         GuiSelectTool=@{ko='먼저 권장 프로그램 표에서 항목을 선택하십시오.';en='Select an item from the recommendation table first.'}
         GuiNotLaunchable=@{ko='이 항목은 Windows에서 직접 실행할 수 없습니다. 부팅형 도구 안내서를 확인하십시오.';en='This item cannot be launched directly in Windows. See the bootable-tool guide.'}
         GuiRiskConfirm=@{ko="위험 등급: {0}`n`n이 프로그램은 시스템 설정 변경, 고부하 또는 저장장치 쓰기를 수행할 수 있습니다. 관련 안내서를 확인했고 실행하시겠습니까?";en="Risk: {0}`n`nThis program may change system settings, create high load, or write to storage. Have you read the applicable guide and want to launch it?"}
+        GuiHighLoadConfirm=@{ko="위험 등급: {0}`n`n이 프로그램은 높은 발열과 전력 부하를 만들 수 있습니다. HWiNFO 센서 화면을 계속 보면서 해당 하드웨어의 제한 온도, 계산 오류, 멈춤 또는 WHEA 발생 시 즉시 중단하는 데 동의합니까?";en="Risk: {0}`n`nThis workload can generate substantial heat and power draw. Do you agree to keep HWiNFO sensors visible and stop immediately at the applicable hardware limit, any calculation error, freeze, or WHEA event?"}
         GuiNoPlan=@{ko='권장 프로그램 분석이 아직 완료되지 않았습니다.';en='The recommended program analysis has not completed yet.'}
         GuiValidationStarted=@{ko='별도 콘솔에서 무결성 검증을 시작했습니다.';en='Integrity validation started in a separate console.'}
         GuiGithubMissing=@{ko='GitHub 원격 저장소가 아직 연결되지 않아 로컬 README를 엽니다.';en='No GitHub remote is configured yet; opening the local README.'}
@@ -264,6 +280,50 @@ function Get-WplText {
         GuiDetailMode=@{ko='실행 모드';en='Launch mode'}
         GuiDetailReady=@{ko='준비 상태';en='Ready state'}
         GuiDetailPath=@{ko='경로';en='Path'}
+        GuiDetectionUnavailable=@{ko='정보를 확인할 수 없음';en='Detection unavailable'}
+        DetailEdition=@{ko='에디션';en='Edition'}
+        DetailVersion=@{ko='버전';en='Version'}
+        DetailBuild=@{ko='빌드';en='Build'}
+        DetailArchitecture=@{ko='아키텍처';en='Architecture'}
+        DetailInstalled=@{ko='설치일';en='Installed'}
+        DetailLastBoot=@{ko='마지막 부팅';en='Last boot'}
+        DetailSystemDrive=@{ko='시스템 드라이브';en='System drive'}
+        DetailWindowsDirectory=@{ko='Windows 디렉터리';en='Windows directory'}
+        DetailLocale=@{ko='로캘';en='Locale'}
+        DetailComputer=@{ko='컴퓨터 제조사';en='Computer vendor'}
+        DetailModel=@{ko='모델';en='Model'}
+        DetailSystemType=@{ko='시스템 유형';en='System type'}
+        DetailHypervisor=@{ko='하이퍼바이저 감지';en='Hypervisor present'}
+        DetailProcessor=@{ko='프로세서';en='Processor'}
+        DetailVendor=@{ko='제조사';en='Vendor'}
+        DetailCores=@{ko='코어';en='Cores'}
+        DetailLogicalProcessors=@{ko='논리 프로세서';en='Logical processors'}
+        DetailBaseClock=@{ko='기본 클럭(MHz)';en='Base clock (MHz)'}
+        DetailSocket=@{ko='소켓';en='Socket'}
+        DetailVirtualization=@{ko='펌웨어 가상화';en='Virtualization firmware'}
+        DetailMainboardVendor=@{ko='메인보드 제조사';en='Mainboard vendor'}
+        DetailMainboardModel=@{ko='메인보드 모델';en='Mainboard model'}
+        DetailMainboardRevision=@{ko='메인보드 리비전';en='Mainboard revision'}
+        DetailBiosVersion=@{ko='BIOS 버전';en='BIOS version'}
+        DetailBiosVendor=@{ko='BIOS 제조사';en='BIOS vendor'}
+        DetailBiosRelease=@{ko='BIOS 출시일';en='BIOS release'}
+        DetailAdapter=@{ko='어댑터';en='Adapter'}
+        DetailDriverVersion=@{ko='드라이버 버전';en='Driver version'}
+        DetailDriverDate=@{ko='드라이버 날짜';en='Driver date'}
+        DetailVideoMode=@{ko='화면 모드';en='Video mode'}
+        DetailReportedVram=@{ko='보고된 VRAM';en='Reported VRAM'}
+        DetailTotal=@{ko='전체';en='Total'}
+        DetailSlot=@{ko='슬롯';en='Slot'}
+        DetailCapacity=@{ko='용량';en='Capacity'}
+        DetailPartNumber=@{ko='부품 번호';en='Part number'}
+        DetailConfigured=@{ko='적용 속도';en='Configured'}
+        DetailRated=@{ko='정격 속도';en='Rated'}
+        DetailVoltage=@{ko='전압';en='Voltage'}
+        DetailDisk=@{ko='디스크';en='Disk'}
+        DetailInterface=@{ko='인터페이스';en='Interface'}
+        DetailSize=@{ko='크기';en='Size'}
+        DetailFirmware=@{ko='펌웨어';en='Firmware'}
+        DetailStatus=@{ko='상태';en='Status'}
         GuiDetailAction=@{ko='실행 버튼은 현재 항목의 실제 실행 파일을 엽니다. 읽기 전용이 아닌 항목은 기존 확인 게이트를 유지합니다.';en='The launch button opens the exact executable for the selected row. Non-read-only items still keep the existing confirmation gate.'}
         GuiBootMediaGuide=@{ko='USB 부팅 안내서';en='Boot media guide'}
         ProgramReady=@{ko='준비됨';en='Ready'}
@@ -281,6 +341,8 @@ function Get-WplText {
         StateDeferredBaseline=@{ko='보류 · 기준선 안정 후';en='Deferred · after baseline'}
         StateExternalBoot=@{ko='외부 부팅 검사';en='External boot test'}
         StateAvailableInProfile=@{ko='GPU·DDU 버튼에서 사용';en='Use via the GPU/DDU button'}
+        StateCatalogOnly=@{ko='전체 도구 · 수동 선택';en='All tools · manual selection'}
+        StateDiagnosticBaselineOnly=@{ko='보류 · 기준선 진단 우선';en='Deferred · diagnose baseline first'}
         StateUnknown=@{ko='상태 미상';en='Unknown state'}
         RiskReadOnly=@{ko='읽기 전용';en='Read-only'}
         RiskReadOnlyAdmin=@{ko='읽기 전용 · 관리자';en='Read-only · administrator'}

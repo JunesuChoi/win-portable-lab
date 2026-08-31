@@ -1,0 +1,10 @@
+{
+  "id": "storage",
+  "name": "Storage diagnostics",
+  "nameKo": "저장장치 점검",
+  "nameEn": "Storage diagnostics",
+  "estimatedMinutes": 30,
+  "requiresConfirmation": true,
+  "tools": ["hwinfo", "smartmontools", "crystaldiskmark", "diskspd"],
+  "steps": ["quick-profile", "storage-health", "free-space-review", "bounded-file-benchmark", "post-test-event-diff"]
+}

@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory)][string]$LauncherId,
     [switch]$Start,
     [switch]$AcceptRisk,
+    [switch]$AcknowledgeManualTemperatureMonitoring,
     [switch]$PauseOnExit,
     [string]$LaunchSignalPath,
     [int]$TimeoutMinutes = -1
@@ -45,6 +46,7 @@ try {
 }
 $conditions = Read-WplJson -Path (Join-Path $Root 'config\stop-conditions.json')
 $isRisky = [string]$launcher.risk -notmatch '^read-only'
+$requiresManualTemperatureMonitoring = [string]$launcher.risk -match '^(?:high-load|very-high-load)$'
 if ($TimeoutMinutes -lt 0) { $TimeoutMinutes = if($isRisky){[int]$conditions.defaultTimeoutMinutes}else{0} }
 $executable = Resolve-WplExecutable -Root $Root -Launcher $launcher
 # Record whether this launcher is backed by a user-declared path, so the session
@@ -59,8 +61,9 @@ $record = [ordered]@{
     schemaVersion=2;sessionId=$sessionId;launcherId=$LauncherId;risk=$launcher.risk;launchMode=$launcher.launchMode
     executable=if($executable){$executable.FullName}else{$null};arguments=$launcherArguments
     userDeclaredPath=if($overrideTrust){[ordered]@{path=$overrideTrust.Path;insideToolsRoot=$overrideTrust.InsideToolsRoot;signatureStatus=$overrideTrust.SignatureStatus;trusted=$overrideTrust.IsTrusted}}else{$null}
+    temperatureMonitoringMode=if($requiresManualTemperatureMonitoring){$(if($AcknowledgeManualTemperatureMonitoring){'manual-operator-acknowledged'}else{'required-not-acknowledged'})}else{'not-required'}
     timeoutMinutes=$TimeoutMinutes;createdAt=(Get-Date).ToString('o');state='preview';sessionHostProcessId=$PID
-    parentProcessId=$null;processId=$null;startedAt=$null;startupObservedMilliseconds=$null;endedAt=$null;exitCode=$null;stopReason=$null
+    parentProcessId=$null;processId=$null;processIds=@();surrogateProcessObserved=$false;startedAt=$null;startupObservedMilliseconds=$null;endedAt=$null;exitCode=$null;stopReason=$null
 }
 try { $record.parentProcessId = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID" -ErrorAction Stop).ParentProcessId } catch { }
 $recordPath = Join-Path $sessionPath 'session.json'
@@ -95,6 +98,9 @@ trap {
 }
 if (-not $Start) { $record | ConvertTo-Json -Depth 8; Write-Host "Preview only. Add -Start -AcceptRisk to launch."; exit 0 }
 if (-not $AcceptRisk) { throw 'Explicit -AcceptRisk is required.' }
+if ($requiresManualTemperatureMonitoring -and -not $AcknowledgeManualTemperatureMonitoring) {
+    throw 'High-load sessions require -AcknowledgeManualTemperatureMonitoring. Keep HWiNFO sensors visible and stop the workload at the applicable hardware limit.'
+}
 if ($launcher.launchMode -eq 'external-boot') { throw 'External-boot tools cannot be launched from Windows.' }
 if (-not $executable) { throw "Executable not found for launcher: $LauncherId" }
 
@@ -121,25 +127,40 @@ if ([string]$launcher.launchMode -in @('cli','cli-help')) {
 }
 
 Write-WplJsonAtomic -Path $recordPath -InputObject $record
+$processesBeforeLaunch = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Select-Object ProcessId,CreationDate)
+$sessionStartedAt = Get-Date
 $process = Start-WplProcess -FilePath $executable.FullName -WorkingDirectory (Split-Path $executable.FullName) -ArgumentList $launcherArguments
 $record.processId=$process.Id
+$record.processIds=@($process.Id)
 Write-WplJsonAtomic -Path $recordPath -InputObject $record
 $startup = Wait-WplProcessStartup -Process $process -ObservationMilliseconds 1000
 $record.startupObservedMilliseconds = $startup.ObservedMilliseconds
-if (-not $startup.Running -and $startup.ExitCode -ne 0) { throw "Process exited during startup with code $($startup.ExitCode)." }
+$activeProcessIds = @(Get-WplRelatedProcessIds -RootProcessId $process.Id -ExecutablePath $executable.FullName -StartedAfter $sessionStartedAt -ExcludedProcesses $processesBeforeLaunch)
+$record.processIds = @($activeProcessIds)
+$record.surrogateProcessObserved = @($activeProcessIds | Where-Object { $_ -ne $process.Id }).Count -gt 0
+if (-not $startup.Running -and $startup.ExitCode -ne 0 -and -not $activeProcessIds.Count) { throw "Process exited during startup with code $($startup.ExitCode)." }
 Write-WplJsonAtomic -Path $recordPath -InputObject $record
-Write-LaunchSignal -Success $true -Message $(if(-not $startup.Running){"Process completed during startup with code $($startup.ExitCode)."}else{'Process started.'}) -TargetProcessId $process.Id
+Write-LaunchSignal -Success $true -Message $(if($activeProcessIds.Count){'Process started.'}else{"Process completed during startup with code $($startup.ExitCode)."}) -TargetProcessId $(if($activeProcessIds.Count){[int]$activeProcessIds[0]}else{$process.Id})
 $deadline=if($TimeoutMinutes -gt 0){(Get-Date).AddMinutes($TimeoutMinutes)}else{$null}
-while (-not $process.HasExited) {
-    if (Test-Path -LiteralPath (Join-Path $sessionPath 'CANCEL.REQUESTED')) { $record.stopReason='cancel-requested'; Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; break }
-    if ($deadline -and (Get-Date) -ge $deadline) { $record.stopReason='timeout'; Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; break }
-    if(-not $isRisky){Start-Sleep -Seconds ([int]$conditions.pollSeconds);$process.Refresh();continue}
+while ($activeProcessIds.Count) {
+    if (Test-Path -LiteralPath (Join-Path $sessionPath 'CANCEL.REQUESTED')) { $record.stopReason='cancel-requested'; Stop-WplRelatedProcesses -ProcessIds $activeProcessIds; break }
+    if ($deadline -and (Get-Date) -ge $deadline) { $record.stopReason='timeout'; Stop-WplRelatedProcesses -ProcessIds $activeProcessIds; break }
+    if(-not $isRisky){
+        Start-Sleep -Seconds ([int]$conditions.pollSeconds)
+        $activeProcessIds = @(Get-WplRelatedProcessIds -RootProcessId $process.Id -ExecutablePath $executable.FullName -StartedAfter $sessionStartedAt -ExcludedProcesses $processesBeforeLaunch)
+        $record.processIds = @($activeProcessIds)
+        if(@($activeProcessIds | Where-Object { $_ -ne $process.Id }).Count){$record.surrogateProcessObserved=$true}
+        continue
+    }
     $availableMb = [math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1024)
-    if ($availableMb -lt [int]$conditions.minimumFreeMemoryMb) { $record.stopReason='low-free-memory'; Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; break }
+    if ($availableMb -lt [int]$conditions.minimumFreeMemoryMb) { $record.stopReason='low-free-memory'; Stop-WplRelatedProcesses -ProcessIds $activeProcessIds; break }
     Start-Sleep -Seconds ([int]$conditions.pollSeconds)
-    $process.Refresh()
+    $activeProcessIds = @(Get-WplRelatedProcessIds -RootProcessId $process.Id -ExecutablePath $executable.FullName -StartedAfter $sessionStartedAt -ExcludedProcesses $processesBeforeLaunch)
+    $record.processIds = @($activeProcessIds)
+    if(@($activeProcessIds | Where-Object { $_ -ne $process.Id }).Count){$record.surrogateProcessObserved=$true}
 }
-$record.state=if($record.stopReason){'stopped'}elseif($process.HasExited -and $process.ExitCode -ne 0){'failed'}else{'completed'}
+$process.Refresh()
+$record.state=if($record.stopReason){'stopped'}elseif($process.HasExited -and $process.ExitCode -ne 0 -and -not $record.surrogateProcessObserved){'failed'}else{'completed'}
 $record.endedAt=(Get-Date).ToString('o')
 if ($process.HasExited) { $record.exitCode=$process.ExitCode }
 if ($record.state -eq 'failed') { $record.stopReason='nonzero-exit' }

@@ -4,6 +4,7 @@
 $script:WplTestSetup = {
     $script:root = Split-Path $PSScriptRoot -Parent
     Import-Module (Join-Path $script:root 'src\WinPortableLab.Core.psm1') -Force
+    Import-Module (Join-Path $script:root 'src\WinPortableLab.Process.psm1') -Force
 
     function Assert-WplTest {
         param([bool]$Condition, [string]$Message)
@@ -72,6 +73,17 @@ Describe 'Package and catalog definitions' {
 }
 
 Describe 'Launcher and profile relationships' {
+    It 'turns a dirty diagnostic baseline into a real workload gate' {
+        foreach ($risk in @('high-load','very-high-load','writes-test-file','fills-free-space-high-write','installer-changes-cpu-settings')) {
+            Assert-WplTest (Test-WplBaselineBlockedRisk -RecommendationMode 'diagnostic-baseline-only' -Risk $risk) "Baseline mode did not block $risk."
+        }
+        Assert-WplTest (-not (Test-WplBaselineBlockedRisk -RecommendationMode 'diagnostic-baseline-only' -Risk 'read-only')) 'Read-only diagnosis was blocked with the workload.'
+        Assert-WplTest (-not (Test-WplBaselineBlockedRisk -RecommendationMode 'conservative-baseline' -Risk 'high-load')) 'A clean baseline still blocks high-load guidance.'
+        $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($gui -match 'Test-WplBaselineBlockedRisk') 'The connection plan does not call the tested workload gate.'
+        Assert-WplTest ($gui.Contains("state = if (`$baselineBlocked) { 'diagnostic-baseline-only' }")) 'Blocked rows are not visibly marked in the generated plan.'
+    }
+
     It 'enumerates every launcher through the shared array reader on both runtimes' {
         $launchers = @(Read-WplJsonArray -Path (Join-Path $root 'config\tool-launchers.json'))
         $data = Get-WplTestData
@@ -180,6 +192,30 @@ Describe 'Elevation and detailed inventory contract' {
             Assert-WplTest ($source -match [regex]::Escape($name)) "Inventory section '$name' is missing."
         }
     }
+
+    It 'builds recommendations from the captured inventory snapshot' {
+        $fixture = Join-Path $TestDrive 'captured-inventory'
+        $output = Join-Path $TestDrive 'recommendations'
+        New-Item -ItemType Directory -Path $fixture -Force | Out-Null
+        [ordered]@{
+            Processor=@([ordered]@{Name='Fixture CPU';Manufacturer='GenuineIntel';NumberOfCores=8;NumberOfLogicalProcessors=16})
+            ComputerSystem=@([ordered]@{Manufacturer='Fixture Vendor';Model='Fixture Model'})
+            OperatingSystem=@([ordered]@{Caption='Fixture Windows';Version='10.0';BuildNumber='99999';OSArchitecture='64-bit'})
+            BaseBoard=@([ordered]@{Manufacturer='Fixture Board';Product='Fixture Z';Version='1.0'})
+            Bios=@([ordered]@{SMBIOSBIOSVersion='FIXTURE-1';ReleaseDate='2026-01-01'})
+            MemoryModules=@([ordered]@{Capacity=17179869184;ConfiguredClockSpeed=3200;Speed=3200;PartNumber='FIXTURE-DIMM'})
+            Graphics=@([ordered]@{Name='Fixture GPU';DriverVersion='1.2.3';DriverDate='2026-01-01'})
+            DiskDrives=@([ordered]@{Model='Fixture SSD';InterfaceType='NVMe';Size=1073741824000;FirmwareRevision='F1'})
+            Batteries=@()
+        } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $fixture 'hardware.json') -Encoding utf8
+        '[{"ProviderName":"Microsoft-Windows-WHEA-Logger","Id":1}]' | Set-Content -LiteralPath (Join-Path $fixture 'events.json') -Encoding utf8
+        $created = & (Join-Path $root 'scripts\New-SystemRecommendation.ps1') -Root $root -OutputRoot $output -InventoryDirectory $fixture -Language en
+        $settings = Read-WplJson -Path (Join-Path $created 'recommended-settings.json')
+        Assert-WplTest ($settings.detected.cpu.name -eq 'Fixture CPU') 'Recommendation ignored the supplied inventory snapshot.'
+        Assert-WplTest ($settings.detected.healthSignals.recommendationMode -eq 'diagnostic-baseline-only') 'Recommendation ignored the supplied event snapshot.'
+        $source = Get-Content -LiteralPath (Join-Path $root 'scripts\New-SystemRecommendation.ps1') -Raw
+        Assert-WplTest ($source -match 'if \(\$inventorySnapshot\)[\s\S]+?else \{[\s\S]+?Read-CimSafe') 'Standalone CIM fallback is not isolated from snapshot reuse.'
+    }
 }
 
 Describe 'GUI snapshot and launcher behavior contract' {
@@ -260,12 +296,90 @@ Describe 'GUI snapshot and launcher behavior contract' {
         Assert-WplTest ($session -match '\$launchers = @\(foreach \(\$item in \$launcherDocument\) \{ \$item \}\)') 'PS 5.1 JSON array normalization is missing.'
     }
 
-    It 'isolates every safe batch launch failure from the WPF dispatcher' {
+    It 'selects one safe recommendation instead of batch-launching tools' {
         $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
-        Assert-WplTest ($source -match 'function Open-ToolIds[\s\S]+?foreach[\s\S]+?try[\s\S]+?catch[\s\S]+?if \(-not \$ContinueOnError\) \{ throw \}') 'Open-ToolIds does not isolate each item when ContinueOnError is set.'
-        Assert-WplTest ($source -match 'Open-ToolIds -Ids \$safe -UseLanguage \$script:GuiLanguage -ContinueOnError') 'Safe launch does not request per-tool error continuation.'
-        Assert-WplTest ($source -match 'logs\\safe-launch-latest\.json') 'Safe launch result logging is missing.'
-        Assert-WplTest ($source -match 'finally \{\s*\$ui\.SafeLaunchButton\.IsEnabled = \$true') 'Safe launch button is not restored in finally.'
+        $start = $source.IndexOf('$ui.SafeLaunchButton.Add_Click')
+        $end = $source.IndexOf('$ui.GuideButton.Add_Click',$start)
+        Assert-WplTest ($start -ge 0 -and $end -gt $start) 'Could not isolate the guided recommendation handler.'
+        $handler = $source.Substring($start,$end-$start)
+        Assert-WplTest ($handler -match "GuiCurrentFilter='recommended'") 'The guided action does not return to the recommendation view.'
+        Assert-WplTest ($handler -match 'ProgramGrid.SelectedItem=\$next') 'The guided action does not select one next item.'
+        Assert-WplTest ($handler -notmatch 'Open-ToolIds|Start-Process') 'The guided action still starts one or more tools automatically.'
+    }
+
+    It 'applies each list filter to the pipeline item rather than the filter name' {
+        # The inline switch used `$_`, which inside a switch body is the switch
+        # input string, so 'recommended', 'missing' and 'risky' all matched every
+        # row. Verified against the live GUI before this predicate was extracted.
+        $catalogOnly = [pscustomobject]@{id='ventoy';displayName='Ventoy';state='catalog-only';risk='system-changing';installed=$true;launchable=$true}
+        $recommended = [pscustomobject]@{id='cpuz';displayName='CPU-Z Portable';state='recommended-now';risk='read-only';installed=$true;launchable=$true}
+        $missing = [pscustomobject]@{id='occt';displayName='OCCT';state='guided-test';risk='very-high-load';installed=$false;launchable=$false}
+        Assert-WplTest (Test-WplProgramVisible -Program $recommended -Filter 'recommended') 'A recommended row was hidden by the recommended filter.'
+        Assert-WplTest (-not (Test-WplProgramVisible -Program $catalogOnly -Filter 'recommended')) 'The recommended filter still shows catalogue-only rows.'
+        Assert-WplTest (Test-WplProgramVisible -Program $catalogOnly -Filter 'all') 'The all filter hid a catalogue row.'
+        Assert-WplTest (Test-WplProgramVisible -Program $recommended -Filter 'ready') 'The ready filter hid a launchable row.'
+        Assert-WplTest (-not (Test-WplProgramVisible -Program $missing -Filter 'ready')) 'The ready filter shows an unlaunchable row.'
+        Assert-WplTest (Test-WplProgramVisible -Program $missing -Filter 'missing') 'The missing filter hid an unacquired row.'
+        Assert-WplTest (-not (Test-WplProgramVisible -Program $recommended -Filter 'missing')) 'The missing filter shows an acquired row.'
+        Assert-WplTest (Test-WplProgramVisible -Program $missing -Filter 'risky') 'The risk filter hid a high-load row.'
+        Assert-WplTest (-not (Test-WplProgramVisible -Program $recommended -Filter 'risky')) 'The risk filter shows a read-only row.'
+        Assert-WplTest (Test-WplProgramVisible -Program $recommended -Filter 'all' -Query 'cpu') 'A matching search query hid its row.'
+        Assert-WplTest (-not (Test-WplProgramVisible -Program $recommended -Filter 'all' -Query 'ventoy')) 'A non-matching search query still shows the row.'
+        $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($gui -match 'Test-WplProgramVisible -Program \$_ -Filter \$filter -Query \$query') 'The GUI list does not use the tested visibility predicate.'
+        Assert-WplTest ($gui -notmatch "'ready' \{ \[bool\]\\\$_\.launchable \}") 'The untestable inline filter switch is back in the GUI.'
+    }
+
+    It 'requires a truthful manual-temperature acknowledgement for high load' {
+        $session = Get-Content -LiteralPath (Join-Path $root 'scripts\Start-WplToolSession.ps1') -Raw
+        $cli = Get-Content -LiteralPath (Join-Path $root 'scripts\Open-PortableTool.ps1') -Raw
+        $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($session -match 'AcknowledgeManualTemperatureMonitoring') 'The supervised launcher has no temperature-monitoring acknowledgement.'
+        Assert-WplTest ($session -match "temperatureMonitoringMode") 'The session journal does not record the monitoring mode.'
+        Assert-WplTest ($cli -match 'ManualTemperatureMonitoringRequired') 'Direct CLI launch bypasses the high-load monitoring gate.'
+        Assert-WplTest ($gui -match "sessionTokens.Add\('-AcknowledgeManualTemperatureMonitoring'\)") 'The GUI does not pass its explicit high-load acknowledgement to the session.'
+        $conditions = Read-WplJson -Path (Join-Path $root 'config\stop-conditions.json')
+        Assert-WplTest (-not ($conditions.PSObject.Properties.Name -contains 'maximumCpuTemperatureC')) 'The config still advertises an unused automatic CPU temperature stop.'
+    }
+
+    It 'tracks a launcher process family instead of only its bootstrap PID' {
+        # A tool that exits its bootstrap and leaves a worker behind used to look
+        # like a completed session, so this starts that exact shape for real.
+        $hostExecutable = (Get-Process -Id $PID).Path
+        $before = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Select-Object ProcessId,CreationDate)
+        $startedAt = Get-Date
+        $bootstrap = Start-Process -FilePath $hostExecutable -WindowStyle Hidden -PassThru -ArgumentList @(
+            '-NoLogo','-NoProfile','-Command',
+            "Start-Process -FilePath '$hostExecutable' -WindowStyle Hidden -ArgumentList @('-NoLogo','-NoProfile','-Command','Start-Sleep -Seconds 25') | Out-Null")
+        try {
+            $deadline = (Get-Date).AddSeconds(20)
+            $related = @()
+            $alive = @()
+            while ((Get-Date) -lt $deadline) {
+                Start-Sleep -Milliseconds 400
+                $related = @(Get-WplRelatedProcessIds -RootProcessId $bootstrap.Id -ExecutablePath $hostExecutable -StartedAfter $startedAt -ExcludedProcesses $before)
+                # Waiting on $related alone can exit while it still holds only the
+                # bootstrap PID, which then dies and leaves nothing alive to check.
+                # The assertion is about a surviving worker, so wait for one.
+                $alive = @($related | Where-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue })
+                $bootstrap.Refresh()
+                if ($bootstrap.HasExited -and $alive.Count) { break }
+            }
+            Assert-WplTest ($bootstrap.HasExited) 'The fixture bootstrap did not exit, so the surrogate case was not exercised.'
+            Assert-WplTest ($related.Count -ge 1) 'A surviving worker process was lost once its bootstrap exited.'
+            Assert-WplTest ($alive.Count -ge 1) 'The resolver reported only dead processes for a running worker.'
+            Stop-WplRelatedProcesses -ProcessIds $related
+            Start-Sleep -Milliseconds 800
+            $remaining = @($related | Where-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue })
+            Assert-WplTest ($remaining.Count -eq 0) "Stop-WplRelatedProcesses left $($remaining.Count) process(es) running."
+        }
+        finally {
+            Stop-Process -Id $bootstrap.Id -Force -ErrorAction SilentlyContinue
+        }
+        $session = Get-Content -LiteralPath (Join-Path $root 'scripts\Start-WplToolSession.ps1') -Raw
+        Assert-WplTest ($session -match 'Get-WplRelatedProcessIds') 'The session supervisor does not refresh the related process family.'
+        Assert-WplTest ($session -match 'Stop-WplRelatedProcesses') 'Cancellation and timeout still stop only the bootstrap process.'
+        Assert-WplTest ($session -match 'surrogateProcessObserved') 'The session journal does not record a surrogate worker.'
     }
 
     It 'opens hardware detail from every summary card' {
@@ -620,7 +734,7 @@ Describe 'Elevated launch integrity contract' {
         $cli = Get-Content -LiteralPath (Join-Path $root 'scripts\Open-PortableTool.ps1') -Raw
         Assert-WplTest ($cli -match 'UntrustedOverrideBlocked') 'The CLI launcher does not gate an untrusted override.'
         $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
-        Assert-WplTest (@([regex]::Matches($gui,'GuiOverrideConfirm')).Count -ge 2) 'Both GUI launch paths must confirm an untrusted override.'
+        Assert-WplTest (@([regex]::Matches($gui,'GuiOverrideConfirm')).Count -ge 1) 'The individual GUI launch path must confirm an untrusted override.'
     }
 
     It 'refuses an unpinned or mismatched download instead of skipping the check' {

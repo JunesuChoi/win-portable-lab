@@ -39,19 +39,26 @@ foreach($launcher in $launchers){
 
     if($SmokeReadOnlyGui -and $smokeEligible -and $exe -and $status -eq 'verified-path'){
         $process=$null
+        $beforeProcesses=@(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Select-Object ProcessId,CreationDate)
+        $smokeStartedAt=Get-Date
         try{
             $arguments = @(ConvertTo-WplArgumentList -InputObject $launcher.arguments)
             $process=Start-WplProcess -FilePath $exe.FullName -ArgumentList $arguments -WorkingDirectory (Split-Path $exe.FullName)
             $stopwatch=[Diagnostics.Stopwatch]::StartNew()
             while(-not $process.HasExited -and $stopwatch.Elapsed.TotalSeconds -lt $StartupSeconds){Start-Sleep -Milliseconds 250;$process.Refresh()}
-            if($process.HasExited){$status='exited-during-startup';$detail="ExitCode=$($process.ExitCode)"}
-            else{$status='started-responsive';$detail="PID=$($process.Id); Window=$($process.MainWindowTitle)"}
+            $relatedIds=@(Get-WplRelatedProcessIds -RootProcessId $process.Id -ExecutablePath $exe.FullName -StartedAfter $smokeStartedAt -ExcludedProcesses $beforeProcesses)
+            if($process.HasExited -and -not $relatedIds.Count){$status='exited-during-startup';$detail="ExitCode=$($process.ExitCode)"}
+            else{$status='started-responsive';$detail="PID=$($process.Id); Related=$($relatedIds -join ','); Window=$($process.MainWindowTitle)"}
         }
         catch{$status='launch-error';$detail=$_.Exception.Message}
         finally{
             if($process -and -not $process.HasExited){
                 [void]$process.CloseMainWindow()
-                if(-not $process.WaitForExit(2000)){Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue}
+                [void]$process.WaitForExit(1500)
+            }
+            if($process){
+                $relatedIds=@(Get-WplRelatedProcessIds -RootProcessId $process.Id -ExecutablePath $exe.FullName -StartedAfter $smokeStartedAt -ExcludedProcesses $beforeProcesses)
+                Stop-WplRelatedProcesses -ProcessIds $relatedIds
             }
         }
     }

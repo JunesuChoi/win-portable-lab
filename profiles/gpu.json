@@ -1,0 +1,10 @@
+{
+  "id": "gpu",
+  "name": "GPU and driver recovery",
+  "nameKo": "GPU·드라이버 복구",
+  "nameEn": "GPU and driver recovery",
+  "estimatedMinutes": 30,
+  "requiresConfirmation": true,
+  "tools": ["hwinfo", "gpuz", "ddu", "amd-cleanup-utility", "sdio"],
+  "steps": ["quick-profile", "gpu-driver-inventory", "sensor-baseline", "conditional-driver-recovery", "post-change-driver-check"]
+}

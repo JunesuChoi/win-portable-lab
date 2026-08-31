@@ -1,0 +1,10 @@
+{
+  "id": "memory",
+  "name": "CPU and memory diagnostics",
+  "nameKo": "CPU·메모리 점검",
+  "nameEn": "CPU and memory diagnostics",
+  "estimatedMinutes": 90,
+  "requiresConfirmation": true,
+  "tools": ["hwinfo", "prime95", "y-cruncher", "testmem5", "hci-memtest", "occt", "memtest86plus"],
+  "steps": ["quick-profile", "sensor-baseline", "cpu-guided-test", "memory-guided-test", "boot-memory-guidance", "post-test-event-diff"]
+}
