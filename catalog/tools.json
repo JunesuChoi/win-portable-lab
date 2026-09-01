@@ -396,6 +396,18 @@
     "notes": "Detects missing or outdated drivers offline and can install them. Detection alone is read-only, but installation replaces drivers, so a restore point is required first. The bundled SDIO_auto.bat performs unattended installation and must never be used from this project."
   },
   {
+    "id": "sd-card-formatter",
+    "name": "SD Memory Card Formatter",
+    "category": "removable-media-formatting",
+    "purposeFolder": "03-Storage-Benchmark-Dirty-Integrity",
+    "distribution": "official-installer-archive",
+    "homepage": "https://www.sdcard.org/downloads/formatter/",
+    "license": "Freeware; official SD Association EULA applies",
+    "risk": "formats-removable-media",
+    "automation": "guided-manual-only",
+    "notes": "Official SD Association formatter for SD, SDHC and SDXC media. Formatting erases the selected card, so the tool is catalog-only, never auto-launched, and requires explicit confirmation. The bundled archive is version 5.0.4 from the official EULA download endpoint."
+  },
+  {
     "id": "glary-utilities",
     "name": "Glary Utilities Portable",
     "category": "system-maintenance-suite",

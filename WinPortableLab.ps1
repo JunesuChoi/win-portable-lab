@@ -11,6 +11,7 @@ param(
     [ValidateSet('ko','en','auto')]
     [string]$Language = 'auto',
     [switch]$NoElevation,
+    [switch]$FastRecommendation,
     [string]$ElevationPayload
 )
 
@@ -28,6 +29,7 @@ if ($ElevationPayload) {
         $AcknowledgeRisk = [bool]$payload.AcknowledgeRisk
         $AcknowledgeManualTemperatureMonitoring = [bool]$payload.AcknowledgeManualTemperatureMonitoring
         $InstallMissing = [bool]$payload.InstallMissing
+        $FastRecommendation = [bool]$payload.FastRecommendation
         $Language = [string]$payload.Language
     }
     catch { throw "Invalid elevation payload: $($_.Exception.Message)" }
@@ -45,7 +47,7 @@ if (-not $NoElevation -and -not (Test-WplCurrentAdministrator)) {
     $payload = [ordered]@{
         Action=$Action;Profile=$Profile;ToolId=@($ToolId);AcknowledgeRisk=[bool]$AcknowledgeRisk
         AcknowledgeManualTemperatureMonitoring=[bool]$AcknowledgeManualTemperatureMonitoring
-        InstallMissing=[bool]$InstallMissing;Language=$Language
+        InstallMissing=[bool]$InstallMissing;FastRecommendation=[bool]$FastRecommendation;Language=$Language
     }
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress -Depth 4)))
     $hostExecutable = (Get-Process -Id $PID).Path
@@ -299,9 +301,13 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
     return [pscustomobject]@{Directory=$RecommendationDirectory;JsonPath=$jsonPath;Plan=$plan}
 }
 
-function Invoke-IntegratedCheck([string]$SelectedProfile) {
+function Invoke-IntegratedCheck([string]$SelectedProfile,[switch]$FastRecommendation) {
     Write-Host (Get-WplText -Key IntegratedCheckStart -Language $Language) -ForegroundColor Cyan
-    $reportDirectory = & (Join-Path $Root 'scripts\Invoke-Inventory.ps1') -OutputRoot (Join-Path $Root 'reports') -Language $Language
+    # GUI recommendation analysis intentionally skips the full driver/security
+    # report.  It still records every fact consumed by recommendations and the
+    # stability gate; CLI checks retain the complete elevated inventory.
+    $collectionProfile = if($FastRecommendation){'quick'}else{'full'}
+    $reportDirectory = & (Join-Path $Root 'scripts\Invoke-Inventory.ps1') -OutputRoot (Join-Path $Root 'reports') -CollectionProfile $collectionProfile -Language $Language
     $recommendationDirectory = & (Join-Path $Root 'scripts\New-SystemRecommendation.ps1') -Root $Root -InventoryDirectory $reportDirectory -Language $Language
     $connection = New-ProgramConnectionPlan -RecommendationDirectory $recommendationDirectory -SelectedProfile $SelectedProfile
 
@@ -374,6 +380,7 @@ function Get-WplToolGuideName([string]$CatalogId) {
         'h2testw' { 'H2TESTW' }
         'ddu' { 'DDU' }
         'sdio' { 'SDIO' }
+        'sd-card-formatter' { 'SD_CARD_FORMATTER' }
         'glary-utilities' { 'GLARY_UTILITIES' }
         default { $null }
     }
@@ -2019,7 +2026,7 @@ function Show-WplGui {
             param($ProjectRoot,$SelectedProfile,$SelectedLanguage,$WindowsModulePath,$AnalysisLog)
             $env:PSModulePath = $WindowsModulePath
             try {
-                $output = @(& (Join-Path $ProjectRoot 'WinPortableLab.ps1') -Action check -Profile $SelectedProfile -Language $SelectedLanguage -NoElevation 2>&1)
+                $output = @(& (Join-Path $ProjectRoot 'WinPortableLab.ps1') -Action check -Profile $SelectedProfile -Language $SelectedLanguage -NoElevation -FastRecommendation 2>&1)
                 $checkSucceeded = $?
                 $output | Out-String | Set-Content -LiteralPath $AnalysisLog -Encoding utf8
                 if (-not $checkSucceeded) {
@@ -2291,7 +2298,7 @@ if ($Action -eq 'launch') {
     return
 }
 
-$result = Invoke-IntegratedCheck -SelectedProfile $Profile
+$result = Invoke-IntegratedCheck -SelectedProfile $Profile -FastRecommendation:$FastRecommendation
 if ($Action -in @('check','list')) {
     Show-ProgramPlan $result.Connection
     return $result

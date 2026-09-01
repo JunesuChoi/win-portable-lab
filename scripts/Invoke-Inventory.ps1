@@ -2,6 +2,11 @@
 param(
     [Parameter(Mandatory)]
     [string]$OutputRoot,
+    # Recommendation screens need stable identity, memory, graphics, storage and
+    # recent stability signals.  The full driver/security inventory is useful,
+    # but makes an interactive recommendation wait for work it does not consume.
+    [ValidateSet('quick','full')]
+    [string]$CollectionProfile = 'full',
     [ValidateSet('ko','en','auto')][string]$Language = 'auto'
 )
 
@@ -34,13 +39,14 @@ New-Item -ItemType Directory -Path $reportDirectory -Force | Out-Null
 
 $admin = Test-IsAdministrator
 $secureBoot = try { Confirm-SecureBootUEFI } catch { $null }
+$fullCollection = $CollectionProfile -eq 'full'
 
 $inventory = [ordered]@{
     SchemaVersion = '0.2.0'
     CapturedAt = (Get-Date).ToString('o')
     ComputerName = $computerName
     IsAdministrator = $admin
-    CollectionMode = if($admin){'elevated-detailed'}else{'standard-limited'}
+    CollectionMode = if($fullCollection){if($admin){'elevated-detailed'}else{'standard-limited'}}else{if($admin){'elevated-recommendation'}else{'standard-recommendation'}}
     SecureBoot = $secureBoot
     OperatingSystem = Invoke-SafeCollection {
         Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber, OSArchitecture, LastBootUpTime, InstallDate, Locale, OSLanguage, ProductType, WindowsDirectory, SystemDrive
@@ -69,16 +75,16 @@ $inventory = [ordered]@{
     DiskDrives = Invoke-SafeCollection {
         Get-CimInstance Win32_DiskDrive | Select-Object Model, InterfaceType, MediaType, FirmwareRevision, Size, Status, PNPDeviceID
     }
-    PhysicalDisks = Invoke-SafeCollection {
+    PhysicalDisks = if($fullCollection){Invoke-SafeCollection {
         Get-PhysicalDisk | Select-Object FriendlyName, MediaType, BusType, HealthStatus, OperationalStatus, Size, FirmwareVersion
-    }
-    Volumes = Invoke-SafeCollection {
+    }}else{@()}
+    Volumes = if($fullCollection){Invoke-SafeCollection {
         Get-Volume | Select-Object DriveLetter, FileSystemLabel, FileSystemType, HealthStatus, OperationalStatus, Size, SizeRemaining, AllocationUnitSize
-    }
-    Partitions = Invoke-SafeCollection {
+    }}else{@()}
+    Partitions = if($fullCollection){Invoke-SafeCollection {
         Get-Partition | Select-Object DiskNumber, PartitionNumber, DriveLetter, Type, Size, IsBoot, IsSystem, IsActive, IsReadOnly, IsOffline
-    }
-    StorageReliability = Invoke-SafeCollection {
+    }}else{@()}
+    StorageReliability = if($fullCollection){Invoke-SafeCollection {
         Get-PhysicalDisk | ForEach-Object {
             $disk = $_
             $counter = $null
@@ -99,43 +105,52 @@ $inventory = [ordered]@{
                 WriteErrorsUncorrected = $counter.WriteErrorsUncorrected
             }}
         }
-    }
-    PnpProblems = Invoke-SafeCollection {
+    }}else{@()}
+    PnpProblems = if($fullCollection){Invoke-SafeCollection {
         Get-PnpDevice -PresentOnly | Where-Object Status -ne 'OK' | Select-Object Class, FriendlyName, InstanceId, Status, Problem
-    }
-    StorageControllers = Invoke-SafeCollection {
+    }}else{@()}
+    StorageControllers = if($fullCollection){Invoke-SafeCollection {
         Get-PnpDevice -PresentOnly | Where-Object Class -in @('SCSIAdapter','HDC','Storage') | Select-Object Class, FriendlyName, InstanceId, Status, Problem
-    }
-    NetworkAdapters = Invoke-SafeCollection {
+    }}else{@()}
+    NetworkAdapters = if($fullCollection){Invoke-SafeCollection {
         Get-CimInstance Win32_NetworkAdapter | Where-Object PhysicalAdapter | Select-Object Name, Manufacturer, AdapterType, NetConnectionStatus, Speed, PNPDeviceID
-    }
-    SignedDrivers = Invoke-SafeCollection {
+    }}else{@()}
+    SignedDrivers = if($fullCollection){Invoke-SafeCollection {
         Get-CimInstance Win32_PnPSignedDriver | Where-Object DeviceName | Select-Object DeviceName, DeviceClass, DriverProviderName, DriverVersion, DriverDate, IsSigned, Signer, InfName
-    }
-    Tpm = Invoke-SafeCollection {
+    }}else{@()}
+    Tpm = if($fullCollection){Invoke-SafeCollection {
         Get-Tpm -ErrorAction Stop | Select-Object TpmPresent, TpmReady, TpmEnabled, TpmActivated, TpmOwned, RestartPending, ManufacturerIdTxt, ManufacturerVersion, AutoProvisioning
-    }
-    BitLockerVolumes = Invoke-SafeCollection {
+    }}else{@()}
+    BitLockerVolumes = if($fullCollection){Invoke-SafeCollection {
         Get-BitLockerVolume -ErrorAction Stop | Select-Object MountPoint, VolumeType, VolumeStatus, ProtectionStatus, EncryptionMethod, EncryptionPercentage, LockStatus, AutoUnlockEnabled
-    }
-    DeviceGuard = Invoke-SafeCollection {
+    }}else{@()}
+    DeviceGuard = if($fullCollection){Invoke-SafeCollection {
         Get-CimInstance -Namespace root\Microsoft\Windows\DeviceGuard -ClassName Win32_DeviceGuard -ErrorAction Stop |
             Select-Object VirtualizationBasedSecurityStatus, SecurityServicesConfigured, SecurityServicesRunning, RequiredSecurityProperties, AvailableSecurityProperties, CodeIntegrityPolicyEnforcementStatus, UsermodeCodeIntegrityPolicyEnforcementStatus
-    }
-    HotFixes = Invoke-SafeCollection {
+    }}else{@()}
+    HotFixes = if($fullCollection){Invoke-SafeCollection {
         Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 50 HotFixID, Description, InstalledOn
-    }
-    PageFiles = Invoke-SafeCollection {
+    }}else{@()}
+    PageFiles = if($fullCollection){Invoke-SafeCollection {
         Get-CimInstance Win32_PageFileUsage | Select-Object Name, AllocatedBaseSize, CurrentUsage, PeakUsage
-    }
-    PowerPlan = Invoke-SafeCollection {
+    }}else{@()}
+    PowerPlan = if($fullCollection){Invoke-SafeCollection {
         Get-CimInstance -Namespace root\cimv2\power -ClassName Win32_PowerPlan | Where-Object IsActive |
             Select-Object ElementName, InstanceID, IsActive
-    }
+    }}else{@()}
 }
 
 $eventStart = [DateTime]::Now.AddDays(-7)
-$events = Invoke-SafeCollection {
+$events = if(-not $fullCollection){Invoke-SafeCollection {
+    # The recommendation gate needs only stability events.  Query them directly
+    # instead of enumerating the broad diagnostic-provider set used by a full report.
+    $whea = @(Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Microsoft-Windows-WHEA-Logger'} -MaxEvents 80 -ErrorAction SilentlyContinue)
+    $power = @(Get-WinEvent -FilterHashtable @{LogName='System';Id=41} -MaxEvents 80 -ErrorAction SilentlyContinue |
+        Where-Object ProviderName -eq 'Microsoft-Windows-Kernel-Power')
+    @($whea + $power) |
+        Where-Object { $_.TimeCreated -ge $eventStart } |
+        Select-Object -First 160 TimeCreated, ProviderName, Id, LevelDisplayName, Message
+}}else{Invoke-SafeCollection {
     $providers = @(
         'Microsoft-Windows-WHEA-Logger',
         'Microsoft-Windows-Kernel-PnP',
@@ -169,7 +184,7 @@ $events = Invoke-SafeCollection {
     $filtered |
         Where-Object { $_.TimeCreated -ge $eventStart } |
         Select-Object -First 500 TimeCreated, ProviderName, Id, LevelDisplayName, Message
-}
+}}
 
 $inventoryPath = Join-Path $reportDirectory 'hardware.json'
 $eventsPath = Join-Path $reportDirectory 'events.json'

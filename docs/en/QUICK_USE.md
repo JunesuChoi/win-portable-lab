@@ -57,6 +57,7 @@ Select a tool in the GUI list, or open it with the command below. The command on
 | USBDeview (`usbdeview`) | USB device history | USB detection problems | Target device enumerates |
 | DDU (`ddu`) | Complete graphics driver removal | Only on vendor change or failed removal | Clean install succeeds after reboot |
 | SDIO (`sdio`) | Missing or outdated driver scan | Unknown devices after a reinstall | No problem markers in Device Manager |
+| SD Memory Card Formatter (`sd-card-formatter`) | Official SD/SDHC/SDXC card formatting | Card filesystem errors or compatibility problems | Data is backed up before a new filesystem is created |
 | Glary Utilities (`glary-utilities`) | Startup, disk and system overview | First pass at slow-boot causes | No unnecessary startup entries |
 
 ## Risk labels

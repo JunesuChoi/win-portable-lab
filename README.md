@@ -33,9 +33,9 @@ Every tool has a pinned SHA-256, a declared risk level, a recorded launch mode, 
 
 ### 1. 위험도는 경고문이 아니라 타입입니다 · Risk is a first-class type, not a README warning
 
-44개 런처가 각자 위험 등급을 선언합니다. 22개는 읽기 전용이라 즉시 실행되고, 나머지 22개는 데이터를 쓰거나 발열을 만들거나 드라이버를 바꾸므로 **모두 명시적 승인**을 요구합니다. 파괴적 도구는 프로필 게이트 뒤에 남으며, 그 게이트는 선의가 아니라 회귀 테스트가 지킵니다.
+45개 런처가 각자 위험 등급을 선언합니다. 22개는 읽기 전용이라 즉시 실행되고, 나머지 23개는 데이터를 쓰거나 발열을 만들거나 드라이버를 바꾸므로 **모두 명시적 승인**을 요구합니다. 파괴적 도구는 프로필 게이트 뒤에 남으며, 그 게이트는 선의가 아니라 회귀 테스트가 지킵니다.
 
-Each of the 44 launchers declares a risk tier. 22 are read-only and launch immediately. The other 22 write data, generate heat, or change drivers, and every one of them requires **explicit acknowledgement**. Destructive tools stay behind a profile gate, and the gate is enforced by a regression test rather than by good intentions.
+Each of the 45 launchers declares a risk tier. 22 are read-only and launch immediately. The other 23 write data, generate heat, or change drivers, and every one of them requires **explicit acknowledgement**. Destructive tools stay behind a profile gate, and the gate is enforced by a regression test rather than by good intentions.
 
 ### 2. 해시 고정이 실제로 빌드를 실패시킵니다 · Hash pinning that actually fails the build
 
@@ -114,9 +114,9 @@ The guides are not link dumps. [TESTMEM5.md](docs/en/tools/TESTMEM5.md) compares
 
 ## 🔁 Cross-runtime guarantee / 듀얼 런타임 보장
 
-Windows PowerShell 5.1과 PowerShell 7은 데이터를 조용히 망가뜨리는 방식으로 다르게 동작합니다. 5.1의 `ConvertFrom-Json`은 최상위 JSON 배열을 단일 중첩 객체로 반환하는데, 이 때문에 44행 런처 감사가 의미 없는 1행으로 뭉뚱그려졌고 회귀 테스트가 잡아내기 전까지 드러나지 않았습니다.
+Windows PowerShell 5.1과 PowerShell 7은 데이터를 조용히 망가뜨리는 방식으로 다르게 동작합니다. 5.1의 `ConvertFrom-Json`은 최상위 JSON 배열을 단일 중첩 객체로 반환하는데, 이 때문에 45행 런처 감사가 의미 없는 1행으로 뭉뚱그려졌고 회귀 테스트가 잡아내기 전까지 드러나지 않았습니다.
 
-Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly corrupt data. `ConvertFrom-Json` on 5.1 returns a top-level JSON array as a single nested object, which silently collapsed a 44-row launcher audit into one meaningless row until a regression test caught it.
+Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly corrupt data. `ConvertFrom-Json` on 5.1 returns a top-level JSON array as a single nested object, which silently collapsed a 45-row launcher audit into one meaningless row until a regression test caught it.
 
 그래서 매번 두 호스트 모두에서 실행합니다 · So the suite runs on both hosts, every time:
 
@@ -124,9 +124,9 @@ Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly 
 .\scripts\Test-Regression.ps1 -Root .
 ```
 
-테스트 58개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 고부하 도구가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
+테스트 59개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 고부하 도구가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
 
-58 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that a high-load tool refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
+59 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that a high-load tool refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
 
 ---
 

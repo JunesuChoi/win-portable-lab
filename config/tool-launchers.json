@@ -44,5 +44,6 @@
   { "id": "ventoy", "catalogId": "ventoy", "pattern": "Ventoy2Disk.exe", "risk": "system-changing", "launchMode": "gui" }
   ,
   { "id": "sdio", "catalogId": "sdio", "pattern": "SDIO_x64_R830.exe", "risk": "system-changing-reboot", "launchMode": "gui" },
-  { "id": "glary-utilities", "catalogId": "glary-utilities", "pattern": "Integrator_Portable.exe", "risk": "system-changing", "launchMode": "gui" }
+  { "id": "sd-card-formatter", "catalogId": "sd-card-formatter", "pattern": "SD Card Formatter 5.0.4 Setup EN.exe", "risk": "formats-removable-media", "launchMode": "installer" },
+  { "id": "glary-utilities", "catalogId": "glary-utilities", "pattern": "GlaryUtilities5Portable.exe", "risk": "system-changing", "launchMode": "gui" }
 ]

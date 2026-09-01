@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packageId": "sd-card-formatter",
+  "catalogId": "sd-card-formatter",
+  "displayName": "SD Memory Card Formatter",
+  "version": "5.0.4",
+  "package": {
+    "kind": "zip",
+    "fileName": "SDCardFormatterv5_WinEN_504.zip"
+  },
+  "source": {
+    "url": "https://www.sdcard.org/downloads/formatter/eula_windows/SDCardFormatterv5_WinEN_504.zip",
+    "trust": "official",
+    "sha256": "9ADD165771A821863636CAE0D5D12D4E4F1B99A527CDA68A2F6651D7192F0514"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": true,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": true,
+    "note": "Free official download. Redistribution and use remain subject to the SD Association EULA included at the official download endpoint."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

@@ -4,7 +4,8 @@ reports/
 recommendations/
 sessions/
 logs/
-downloads/
+downloads/*
+!downloads/SDCardFormatterv5_WinEN_504.zip
 .retired/
 offline-packs/
 
@@ -15,6 +16,8 @@ tools/*
 !tools/*/
 tools/*/*
 !tools/*/README.md
+!tools/03-Storage-Benchmark-Dirty-Integrity/sd-card-formatter/
+!tools/03-Storage-Benchmark-Dirty-Integrity/sd-card-formatter/**
 *.log
 *.tmp
 .vs/

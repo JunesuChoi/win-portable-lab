@@ -1,0 +1,18 @@
+{
+  "id": "sd-card-formatter",
+  "packageId": "sd-card-formatter",
+  "version": "5.0.4",
+  "trust": "official",
+  "source": "https://www.sdcard.org/downloads/formatter/eula_windows/SDCardFormatterv5_WinEN_504.zip",
+  "archiveSha256": "9ADD165771A821863636CAE0D5D12D4E4F1B99A527CDA68A2F6651D7192F0514",
+  "executables": [
+    {
+      "path": "tools\\03-Storage-Benchmark-Dirty-Integrity\\sd-card-formatter\\SDCardFormatterv5_WinEN\\SD Card Formatter 5.0.4 Setup EN.exe",
+      "sha256": "E7E3D2CA1E1A2ECCE4C70C5B5A3FB562AF00DA8F9B2EC0B2DD048673BA1380E5",
+      "signatureStatus": "Valid"
+    }
+  ],
+  "highLoad": false,
+  "writesData": true,
+  "executionTested": false
+}

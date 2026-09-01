@@ -57,6 +57,7 @@
 | USBDeview (`usbdeview`) | USB 장치 이력 | USB 인식 문제 | 대상 장치 정상 등록 |
 | DDU (`ddu`) | 그래픽 드라이버 완전 제거 | 업체 변경, 제거 실패 시에만 | 재부팅 후 클린 설치 성공 |
 | SDIO (`sdio`) | 누락·구형 드라이버 검사 | 재설치 후 미확인 장치 | 장치 관리자에 문제 표시 없음 |
+| SD Memory Card Formatter (`sd-card-formatter`) | SD/SDHC/SDXC 카드 공식 포맷 | 카드 파일시스템 오류·호환성 문제 | 필요한 데이터 백업 후 새 파일시스템 생성 |
 | Glary Utilities (`glary-utilities`) | 시작 항목·디스크·시스템 개요 | 부팅 지연 원인 초기 파악 | 불필요한 시작 항목 없음 |
 
 ## 위험도 표기

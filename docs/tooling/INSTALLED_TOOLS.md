@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-08-30 (KST)
 
-All package archives are gitignored. `scripts/Install-PortableTools.ps1` pins the SHA-256 values below, while each local version directory contains a more detailed `INSTALL-MANIFEST.json` with resolved URL, file size, executable hashes, Authenticode state and signer.
+Third-party archives are normally gitignored. The user-approved official SD Memory Card Formatter 5.0.4 archive and its extracted installer are the documented exception; `scripts/Install-PortableTools.ps1` pins the SHA-256 values below, while each local version directory contains a more detailed `INSTALL-MANIFEST.json` with resolved URL, file size, executable hashes, Authenticode state and signer.
 
 | Tool | Version | Source trust | Archive SHA-256 |
 | --- | --- | --- | --- |
@@ -17,7 +17,7 @@ All package archives are gitignored. `scripts/Install-PortableTools.ps1` pins th
 | Driver Store Explorer | 1.0.26 | official-github-release | `89A5ED17...DA8E931F` |
 | Fan Control | 275 | official-github-release | `369445D8...5AC7C030` |
 | FullEventLogView | 1.81 | official | `DD67610F...B4BA1D95` |
-| Glary Utilities Portable | 6.46 | official | `C6B04421...DC8DA301` |
+| Glary Utilities Portable | 5.180.0.209 | user-supplied-local, unsigned | `65F5D3F9...8630D24` |
 | GPU-Z | 2.70.0 | official | `6CB0EF29...59979C29` |
 | H2testw | 1.4 | official-publisher | `0D54B8BE...E2DAC187` |
 | HCI MemTest (free) | 7.0 | official | `08960F44...8E4679E6` |
@@ -31,6 +31,7 @@ All package archives are gitignored. `scripts/Install-PortableTools.ps1` pins th
 | Prime95 | 30.19b20 | official | `D9475F2F...A8756BCA` |
 | AMD Ryzen Master | 3.1.1.5502 | official-installer-not-portable | `8F3F687C...BF105749` |
 | Snappy Driver Installer Origin | 830 | official | `7BB0CECA...E3692819` |
+| SD Memory Card Formatter | 5.0.4 | official SD Association | `9ADD1657...7192F0514` |
 | smartmontools | 7.5 | official-project-mirror | `896337FC...E6104C70` |
 | Sysinternals Suite | snapshot-2026-08-29 | official-rolling | `EC1C2258...356DE169` |
 | TestMem5 | 0.13.1 | official | `05FFB5BB...50128C12` |

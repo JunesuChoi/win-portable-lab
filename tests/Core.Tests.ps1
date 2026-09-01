@@ -193,6 +193,18 @@ Describe 'Elevation and detailed inventory contract' {
         }
     }
 
+    It 'uses a bounded recommendation inventory without removing full reporting' {
+        $inventoryCommand = Get-Command (Join-Path $root 'scripts\Invoke-Inventory.ps1')
+        Assert-WplTest ($inventoryCommand.Parameters.Keys -contains 'CollectionProfile') 'Inventory cannot select a recommendation collection profile.'
+        $source = Get-Content -LiteralPath (Join-Path $root 'scripts\Invoke-Inventory.ps1') -Raw
+        Assert-WplTest ($source -match "ValidateSet\('quick','full'\)") 'Inventory profile validation is missing.'
+        Assert-WplTest ($source -match '\$fullCollection\s*=\s*\$CollectionProfile -eq ''full''') 'Inventory does not preserve an explicit full-report branch.'
+        Assert-WplTest ($source -match 'ProviderName=''Microsoft-Windows-WHEA-Logger''') 'Quick recommendations no longer collect WHEA stability signals.'
+        $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($gui -match '-NoElevation -FastRecommendation') 'GUI analysis does not request the bounded recommendation inventory.'
+        Assert-WplTest ($gui -match '\$collectionProfile = if\(\$FastRecommendation\)\{''quick''\}else\{''full''\}') 'Console and GUI inventory profile routing is not explicit.'
+    }
+
     It 'builds recommendations from the captured inventory snapshot' {
         $fixture = Join-Path $TestDrive 'captured-inventory'
         $output = Join-Path $TestDrive 'recommendations'
@@ -475,7 +487,7 @@ Describe 'GUI snapshot and launcher behavior contract' {
 
 Describe 'KO and EN localization contract' {
     It 'pairs every detailed tool guide across KO and EN' {
-        $guideNames = @('TESTMEM5','HCI_MEMTEST','LATENCYMON','BATTERYINFOVIEW','WIZTREE','VENTOY','PRIME95','OCCT','NARAEON_DIRTY_TEST','H2TESTW','DDU','SDIO','GLARY_UTILITIES')
+        $guideNames = @('TESTMEM5','HCI_MEMTEST','LATENCYMON','BATTERYINFOVIEW','WIZTREE','VENTOY','PRIME95','OCCT','NARAEON_DIRTY_TEST','H2TESTW','DDU','SDIO','SD_CARD_FORMATTER','GLARY_UTILITIES')
         $missing = @()
         foreach ($name in $guideNames) {
             foreach ($code in @('ko','en')) {
