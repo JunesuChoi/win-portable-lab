@@ -613,6 +613,7 @@ function Show-WplGui {
           <Separator Background="{DynamicResource Hairline}" Margin="0,9,0,11" Height="1"/>
           <TextBlock x:Name="ManageSectionText" Foreground="{DynamicResource InkTertiary}" FontWeight="Medium" FontSize="10" Margin="2,0,0,7"/>
           <Button x:Name="RefreshButton" Style="{StaticResource NavButton}"/>
+          <Button x:Name="BatchDownloadButton" Style="{StaticResource NavButton}"/>
           <Expander x:Name="MoreExpander" Foreground="{DynamicResource InkSubtle}" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Padding="2,4" Margin="0,4,0,0" FontSize="12">
             <StackPanel Margin="0,7,0,0"><Button x:Name="NetworkDriverButton" Style="{StaticResource NavButton}"/><Button x:Name="GithubButton" Style="{StaticResource NavButton}"/><Button x:Name="ValidateButton" Style="{StaticResource NavButton}"/></StackPanel>
           </Expander>
@@ -704,7 +705,7 @@ function Show-WplGui {
 
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)
-    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','StandardButton','DeepButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','NetworkDriverButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterRecommendedButton','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
+    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','StandardButton','DeepButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','BatchDownloadButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','NetworkDriverButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterRecommendedButton','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
     $ui = @{}
     foreach ($name in $names) { $ui[$name] = $window.FindName($name) }
 
@@ -713,6 +714,7 @@ function Show-WplGui {
     $script:GuiPlanPath = $null
     $script:GuiRecommendationDirectory = $null
     $script:GuiJob = $null
+    $script:GuiInstallers = $null
     $script:GuiInitialAnalysisStarted = $false
     $script:GuiJobStarted = $null
     $script:GuiMemoryGb = $null
@@ -888,13 +890,10 @@ function Show-WplGui {
         $answer = [System.Windows.MessageBox]::Show($message,$window.Title,[System.Windows.MessageBoxButton]::YesNoCancel,[System.Windows.MessageBoxImage]::Information)
         if ($answer -eq [System.Windows.MessageBoxResult]::Cancel) { return }
         if ($answer -eq [System.Windows.MessageBoxResult]::No) { Select-GuiExistingExecutable $Selected; return }
-        $installer = Join-Path $Root 'scripts\Install-PortableTools.ps1'
-        $tokens = [Collections.Generic.List[string]]::new()
-        $tokens.AddRange([string[]]@('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$installer,'-Root',$Root,'-Id',[string]$Selected.catalogId,'-Language',$script:GuiLanguage))
-        if ([bool]$package.risk.highLoad) { $tokens.Add('-IncludeHighLoad') }
-        Start-Process powershell.exe -ArgumentList (ConvertTo-WplWindowsCommandLine -ArgumentList $tokens.ToArray())
-        Set-GuiStatusTone 'busy'
-        $ui.StatusText.Text = Get-WplText -Key GuiDownloadStarted -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)
+        $installerArguments = [Collections.Generic.List[string]]::new()
+        $installerArguments.AddRange([string[]]@('-Id',[string]$Selected.catalogId))
+        if ([bool]$package.risk.highLoad) { $installerArguments.Add('-IncludeHighLoad') }
+        Start-WplGuiInstaller ([string]$Selected.displayName) $installerArguments.ToArray()
     }
 
     function Set-GuiSnapshotText {
@@ -1302,8 +1301,49 @@ function Show-WplGui {
     }
 
     function Set-GuiAnalysisControls([bool]$Enabled) {
-        foreach ($button in @($ui.QuickButton,$ui.StandardButton,$ui.DeepButton,$ui.AllButton,$ui.StorageButton,$ui.MemoryButton,$ui.GpuButton,$ui.RefreshButton)) { $button.IsEnabled = $Enabled }
+        foreach ($button in @($ui.QuickButton,$ui.StandardButton,$ui.DeepButton,$ui.AllButton,$ui.StorageButton,$ui.MemoryButton,$ui.GpuButton,$ui.RefreshButton,$ui.BatchDownloadButton)) { $button.IsEnabled = $Enabled }
         $ui.AnalysisProgressBar.Visibility = if ($Enabled) { [Windows.Visibility]::Collapsed } else { [Windows.Visibility]::Visible }
+    }
+
+    # Installations run out of process so the UI stays responsive, and the same
+    # watcher refreshes the program list from the cached recommendation
+    # snapshot the moment an installer exits - no full re-analysis needed.
+    function Start-WplGuiInstaller([string]$DisplayName,[string[]]$InstallerArguments) {
+        if (-not $script:GuiInstallers) { $script:GuiInstallers = [Collections.Generic.List[object]]::new() }
+        $tokens = [Collections.Generic.List[string]]::new()
+        $tokens.AddRange([string[]]@('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $Root 'scripts\Install-PortableTools.ps1'),'-Root',$Root,'-Language',$script:GuiLanguage))
+        $tokens.AddRange($InstallerArguments)
+        $logDirectory = Join-Path $Root 'logs'
+        New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+        $stdoutLog = Join-Path $logDirectory 'tool-install-latest.out.log'
+        $stderrLog = Join-Path $logDirectory 'tool-install-latest.err.log'
+        $process = Start-Process powershell.exe -ArgumentList (ConvertTo-WplWindowsCommandLine -ArgumentList $tokens.ToArray()) -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
+        $script:GuiInstallers.Add([pscustomobject]@{Process=$process;DisplayName=$DisplayName})
+        Set-GuiStatusTone 'busy'
+        $ui.StatusText.Text = Get-WplText -Key GuiDownloadStarted -Language $script:GuiLanguage -ArgumentList @($DisplayName)
+        $timer.Start()
+    }
+
+    function Update-WplGuiInstallers {
+        if (-not $script:GuiInstallers -or $script:GuiInstallers.Count -eq 0) { return $false }
+        foreach ($installer in $script:GuiInstallers) { $installer.Process.Refresh() }
+        $finished = @($script:GuiInstallers | Where-Object { $_.Process.HasExited })
+        foreach ($installer in $finished) { [void]$script:GuiInstallers.Remove($installer) }
+        if ($finished.Count) {
+            $names = (@($finished | ForEach-Object { $_.DisplayName }) -join ', ')
+            $failed = @($finished | Where-Object { $_.Process.ExitCode -ne 0 })
+            Reset-WplToolIndex
+            if ($failed.Count) {
+                Set-GuiStatusTone 'fail'
+                $ui.StatusText.Text = Get-WplText -Key GuiDownloadFailed -Language $script:GuiLanguage -ArgumentList @($names)
+            }
+            else {
+                try { Set-GuiPlanFromCurrentSnapshot } catch { }
+                Set-GuiStatusTone 'ok'
+                $ui.StatusText.Text = Get-WplText -Key GuiDownloadCompleted -Language $script:GuiLanguage -ArgumentList @($names)
+            }
+        }
+        return ($script:GuiInstallers.Count -gt 0)
     }
 
     # Runs the network driver helper out of process so an elevation prompt can be
@@ -1732,6 +1772,7 @@ function Show-WplGui {
         $ui.MemoryButton.Content = Get-WplText -Key GuiMemory -Language $code
         $ui.GpuButton.Content = Get-WplText -Key GuiGpu -Language $code
         $ui.RefreshButton.Content = Get-WplText -Key GuiRefreshSystem -Language $code
+        $ui.BatchDownloadButton.Content = Get-WplText -Key GuiBatchDownload -Language $code
         $ui.SafeLaunchButton.Content = Get-WplText -Key GuiSafeLaunch -Language $code
         $ui.ReportsButton.Content = Get-WplText -Key GuiReports -Language $code
         $ui.LatestResultButton.Content = Get-WplText -Key GuiLatestResult -Language $code
@@ -1960,7 +2001,12 @@ function Show-WplGui {
     $timer = New-Object Windows.Threading.DispatcherTimer
     $timer.Interval = [TimeSpan]::FromMilliseconds(750)
     $timer.Add_Tick({
-        if (-not $script:GuiJob) { return }
+        $installerActive = Update-WplGuiInstallers
+        if (-not $script:GuiJob) {
+            # Installers share the analysis timer; stop it only when neither is active.
+            if (-not $installerActive) { $timer.Stop() }
+            return
+        }
         if ($script:GuiJob.State -notin @('Completed','Failed','Stopped')) {
             $newReport = Get-ChildItem -LiteralPath (Join-Path $Root 'reports') -Directory -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $script:GuiJobStarted.AddSeconds(-2) } | Select-Object -First 1
             $newSettings = Get-ChildItem -LiteralPath (Join-Path $Root 'recommendations') -Filter 'recommended-settings.json' -File -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $script:GuiJobStarted.AddSeconds(-2) } | Select-Object -First 1
@@ -2082,6 +2128,23 @@ function Show-WplGui {
     $ui.MemoryButton.Add_Click({ Set-GuiProfileFromSnapshot 'memory' })
     $ui.GpuButton.Add_Click({ Set-GuiProfileFromSnapshot 'gpu' })
     $ui.RefreshButton.Add_Click({ Start-GuiAnalysis $script:GuiCurrentProfile })
+    $ui.BatchDownloadButton.Add_Click({
+        if ($script:GuiInstallers -and $script:GuiInstallers.Count) {
+            $ui.StatusText.Text = Get-WplText -Key GuiBatchInProgress -Language $script:GuiLanguage
+            return
+        }
+        if (-not $script:GuiPlan) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNoPlan -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
+        $packageCatalogIds = @(Get-WplPackageDefinitions -Root $Root | ForEach-Object { [string]$_.catalogId })
+        $missing = @($script:GuiPlan.programs |
+            Where-Object { -not $_.installed -and $_.catalogId -and $packageCatalogIds -contains [string]$_.catalogId } |
+            Select-Object -ExpandProperty catalogId -Unique)
+        if (-not $missing.Count) {
+            Set-GuiStatusTone 'ok'
+            $ui.StatusText.Text = Get-WplText -Key GuiBatchDownloadNothing -Language $script:GuiLanguage
+            return
+        }
+        Start-WplGuiInstaller (Get-WplText -Key GuiBatchDownloadName -Language $script:GuiLanguage) ([string[]]@('-Id',($missing -join ','),'-IncludeHighLoad'))
+    })
     $ui.OsCardButton.Add_Click({ Show-GuiHardwareDetail 'os' (Get-WplText -Key GuiDetailTitleOs -Language $script:GuiLanguage) })
     $ui.CpuCardButton.Add_Click({ Show-GuiHardwareDetail 'cpu' (Get-WplText -Key GuiDetailTitleCpu -Language $script:GuiLanguage) })
     $ui.GpuCardButton.Add_Click({ Show-GuiHardwareDetail 'gpu' (Get-WplText -Key GuiDetailTitleGpu -Language $script:GuiLanguage) })
@@ -2246,6 +2309,12 @@ function Show-WplGui {
         $timer.Stop()
         if ($script:GuiJob -and $script:GuiJob.State -in @('NotStarted','Running')) { Stop-Job -Job $script:GuiJob -ErrorAction SilentlyContinue }
         if ($script:GuiJob) { Remove-Job -Job $script:GuiJob -Force -ErrorAction SilentlyContinue }
+        if ($script:GuiInstallers) {
+            foreach ($installer in $script:GuiInstallers) {
+                $installer.Process.Refresh()
+                if (-not $installer.Process.HasExited) { Stop-Process -Id $installer.Process.Id -Force -ErrorAction SilentlyContinue }
+            }
+        }
     })
 
     $ui.GuideButton.IsEnabled = $false

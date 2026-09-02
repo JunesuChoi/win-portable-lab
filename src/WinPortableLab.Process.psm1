@@ -138,6 +138,25 @@ function Get-WplRelatedProcessIds {
     return @($related | Sort-Object)
 }
 
+function Get-WplSameImageProcessIds {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ExecutablePath)
+
+    # Handoff detection: single-instance utilities exit immediately, often with
+    # a non-zero code, when an instance of the same image is already running.
+    # A live same-image process therefore means the launch worked. Path
+    # equality is the strong match; processes whose path cannot be read still
+    # count when the image name matches, because the launcher itself usually
+    # runs elevated and the launch record already pins the executable path.
+    $imageName = [IO.Path]::GetFileName($ExecutablePath)
+    $filter = "Name = '$($imageName.Replace("'","''"))'"
+    $rows = @(Get-CimInstance Win32_Process -Filter $filter -ErrorAction SilentlyContinue)
+    return @($rows |
+        Where-Object { -not $_.ExecutablePath -or $_.ExecutablePath -ieq $ExecutablePath } |
+        ForEach-Object { [int]$_.ProcessId } |
+        Sort-Object -Unique)
+}
+
 function Stop-WplRelatedProcesses {
     [CmdletBinding()]
     param([AllowEmptyCollection()][int[]]$ProcessIds = @())
@@ -191,4 +210,4 @@ function Get-WplErrorDetail {
     }
 }
 
-Export-ModuleMember -Function ConvertTo-WplArgumentList,ConvertTo-WplWindowsCommandLine,Start-WplProcess,Wait-WplProcessStartup,Get-WplRelatedProcessIds,Stop-WplRelatedProcesses,Write-WplJsonAtomic,Get-WplErrorDetail
+Export-ModuleMember -Function ConvertTo-WplArgumentList,ConvertTo-WplWindowsCommandLine,Start-WplProcess,Wait-WplProcessStartup,Get-WplRelatedProcessIds,Get-WplSameImageProcessIds,Stop-WplRelatedProcesses,Write-WplJsonAtomic,Get-WplErrorDetail

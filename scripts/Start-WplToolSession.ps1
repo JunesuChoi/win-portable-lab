@@ -63,7 +63,7 @@ $record = [ordered]@{
     userDeclaredPath=if($overrideTrust){[ordered]@{path=$overrideTrust.Path;insideToolsRoot=$overrideTrust.InsideToolsRoot;signatureStatus=$overrideTrust.SignatureStatus;trusted=$overrideTrust.IsTrusted}}else{$null}
     temperatureMonitoringMode=if($requiresManualTemperatureMonitoring){$(if($AcknowledgeManualTemperatureMonitoring){'manual-operator-acknowledged'}else{'required-not-acknowledged'})}else{'not-required'}
     timeoutMinutes=$TimeoutMinutes;createdAt=(Get-Date).ToString('o');state='preview';sessionHostProcessId=$PID
-    parentProcessId=$null;processId=$null;processIds=@();surrogateProcessObserved=$false;startedAt=$null;startupObservedMilliseconds=$null;endedAt=$null;exitCode=$null;stopReason=$null
+    parentProcessId=$null;processId=$null;processIds=@();surrogateProcessObserved=$false;handoffToExistingInstance=$false;startedAt=$null;startupObservedMilliseconds=$null;endedAt=$null;exitCode=$null;stopReason=$null
 }
 try { $record.parentProcessId = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID" -ErrorAction Stop).ParentProcessId } catch { }
 $recordPath = Join-Path $sessionPath 'session.json'
@@ -129,6 +129,7 @@ if ([string]$launcher.launchMode -in @('cli','cli-help')) {
 Write-WplJsonAtomic -Path $recordPath -InputObject $record
 $processesBeforeLaunch = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Select-Object ProcessId,CreationDate)
 $sessionStartedAt = Get-Date
+$preLaunchInstanceIds = @(Get-WplSameImageProcessIds -ExecutablePath $executable.FullName)
 $process = Start-WplProcess -FilePath $executable.FullName -WorkingDirectory (Split-Path $executable.FullName) -ArgumentList $launcherArguments
 $record.processId=$process.Id
 $record.processIds=@($process.Id)
@@ -138,9 +139,10 @@ $record.startupObservedMilliseconds = $startup.ObservedMilliseconds
 $activeProcessIds = @(Get-WplRelatedProcessIds -RootProcessId $process.Id -ExecutablePath $executable.FullName -StartedAfter $sessionStartedAt -ExcludedProcesses $processesBeforeLaunch)
 $record.processIds = @($activeProcessIds)
 $record.surrogateProcessObserved = @($activeProcessIds | Where-Object { $_ -ne $process.Id }).Count -gt 0
-if (-not $startup.Running -and $startup.ExitCode -ne 0 -and -not $activeProcessIds.Count) { throw "Process exited during startup with code $($startup.ExitCode)." }
+$record.handoffToExistingInstance = (-not $startup.Running -and $startup.ExitCode -ne 0 -and -not $activeProcessIds.Count -and $preLaunchInstanceIds.Count -gt 0)
+if (-not $startup.Running -and $startup.ExitCode -ne 0 -and -not $activeProcessIds.Count -and -not $record.handoffToExistingInstance) { throw "Process exited during startup with code $($startup.ExitCode)." }
 Write-WplJsonAtomic -Path $recordPath -InputObject $record
-Write-LaunchSignal -Success $true -Message $(if($activeProcessIds.Count){'Process started.'}else{"Process completed during startup with code $($startup.ExitCode)."}) -TargetProcessId $(if($activeProcessIds.Count){[int]$activeProcessIds[0]}else{$process.Id})
+Write-LaunchSignal -Success $true -Message $(if($activeProcessIds.Count){'Process started.'}elseif($record.handoffToExistingInstance){'Handed off to an already running instance.'}else{"Process completed during startup with code $($startup.ExitCode)."}) -TargetProcessId $(if($activeProcessIds.Count){[int]$activeProcessIds[0]}else{$process.Id})
 $deadline=if($TimeoutMinutes -gt 0){(Get-Date).AddMinutes($TimeoutMinutes)}else{$null}
 while ($activeProcessIds.Count) {
     if (Test-Path -LiteralPath (Join-Path $sessionPath 'CANCEL.REQUESTED')) { $record.stopReason='cancel-requested'; Stop-WplRelatedProcesses -ProcessIds $activeProcessIds; break }
@@ -160,7 +162,7 @@ while ($activeProcessIds.Count) {
     if(@($activeProcessIds | Where-Object { $_ -ne $process.Id }).Count){$record.surrogateProcessObserved=$true}
 }
 $process.Refresh()
-$record.state=if($record.stopReason){'stopped'}elseif($process.HasExited -and $process.ExitCode -ne 0 -and -not $record.surrogateProcessObserved){'failed'}else{'completed'}
+$record.state=if($record.stopReason){'stopped'}elseif($process.HasExited -and $process.ExitCode -ne 0 -and -not $record.surrogateProcessObserved -and -not $record.handoffToExistingInstance){'failed'}else{'completed'}
 $record.endedAt=(Get-Date).ToString('o')
 if ($process.HasExited) { $record.exitCode=$process.ExitCode }
 if ($record.state -eq 'failed') { $record.stopReason='nonzero-exit' }

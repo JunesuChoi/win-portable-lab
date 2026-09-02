@@ -57,13 +57,23 @@ $launchRecord = [ordered]@{
     startupObservedMilliseconds=$null;exitCode=$null;error=$null
 }
 Write-WplJsonAtomic -Path $launchRecordPath -InputObject $launchRecord
+# A pre-existing instance means a single-image handoff is expected: many
+# utilities exit immediately, often non-zero, when they are already running.
+$preLaunchInstanceIds = @(Get-WplSameImageProcessIds -ExecutablePath $selected.Executable)
 try {
     $process = Start-WplProcess -FilePath $selected.Executable -WorkingDirectory (Split-Path $selected.Executable) -ArgumentList $selectedArguments
     $launchRecord.processId = $process.Id
     $startup = Wait-WplProcessStartup -Process $process -ObservationMilliseconds 1000
     $launchRecord.startupObservedMilliseconds = $startup.ObservedMilliseconds
     $launchRecord.exitCode = $startup.ExitCode
-    if (-not $startup.Running -and $startup.ExitCode -ne 0) { throw "Process exited during startup with code $($startup.ExitCode)." }
+    if (-not $startup.Running -and $startup.ExitCode -ne 0) {
+        $preExistingIds = @($preLaunchInstanceIds | Where-Object { $_ -ne $process.Id })
+        if (-not $preExistingIds.Count) { throw "Process exited during startup with code $($startup.ExitCode)." }
+        $launchRecord.state = 'handoff-to-running-instance'
+        Write-WplJsonAtomic -Path $launchRecordPath -InputObject $launchRecord
+        Write-Host (Get-WplText -Key HandoffToRunningInstance -Language $Language -ArgumentList @($Id)) -ForegroundColor Green
+        return
+    }
     $launchRecord.state = if ($startup.Running) { 'started' } else { 'completed-during-startup' }
     Write-WplJsonAtomic -Path $launchRecordPath -InputObject $launchRecord
 } catch {

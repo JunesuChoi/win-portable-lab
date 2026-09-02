@@ -58,6 +58,13 @@ function Get-WplText {
         EnterToolId=@{ko='실행할 프로그램 ID를 입력하십시오';en='Enter the program ID to launch'}
         NoSafeLaunch=@{ko='자동으로 열 수 있는 읽기 전용 권장 프로그램이 없습니다.';en='No read-only recommended GUI program is available to launch.'}
         BulkLaunchDisabled=@{ko='여러 진단 프로그램의 일괄 실행은 비활성화했습니다. 다음 후보를 하나씩 검토해 ID로 실행하십시오: {0}';en='Batch launch is disabled. Review and launch one recommendation at a time by id: {0}'}
+        HandoffToRunningInstance=@{ko="{0}은(는) 이미 실행 중입니다. 실행 중인 인스턴스로 요청을 전달했습니다.";en="{0} is already running. The launch was handed off to the running instance."}
+        GuiBatchDownload=@{ko='누락 도구 일괄 받기';en='Download missing tools'}
+        GuiBatchDownloadName=@{ko='누락 도구 일괄';en='Missing tools (batch)'}
+        GuiBatchDownloadNothing=@{ko='일괄 받을 누락 프로그램이 없습니다. 권장 프로그램은 모두 확보되어 있습니다.';en='No missing downloadable tools. Every recommended program is present.'}
+        GuiBatchInProgress=@{ko='내려받기가 이미 진행 중입니다. 완료 후 목록이 자동으로 갱신됩니다.';en='A download is already in progress. The list refreshes automatically when it finishes.'}
+        GuiDownloadCompleted=@{ko='{0} 준비 완료. 프로그램 목록을 갱신했습니다.';en='{0} ready. Program list refreshed.'}
+        GuiDownloadFailed=@{ko='{0} 준비 실패. logs 폴더의 설치 로그를 확인하십시오.';en='Preparing {0} failed. Check the install log in the logs folder.'}
         MissingPrograms=@{ko='확보되지 않은 권장 프로그램: {0}';en='Missing recommended programs: {0}'}
         ProgramPlanValidationPassed=@{ko='권장 프로그램 연결 검증 통과. 항목: {0}';en='Recommended program connection validation passed. Items: {0}'}
         RecIdentity=@{ko='CPU, 메인보드와 메모리 구성을 읽기 전용으로 확인합니다.';en='Read-only identification of CPU, mainboard and memory configuration.'}
