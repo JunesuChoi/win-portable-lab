@@ -76,6 +76,33 @@ That is it. The dashboard opens, shows a hardware summary immediately, and finis
 .\WinPortableLab.ps1 -Action check -Profile all -Language ko
 ```
 
+### npm으로 전역 설치 · Install globally via npm
+
+Node.js가 있다면 clone 없이 전역 설치 후 어디서든 `wpl` 한 글자로 실행할 수 있습니다.
+
+If you have Node.js, install globally and run it from anywhere with a single command.
+
+```powershell
+npm install -g @jstrsy08/win-portable-lab
+wpl
+```
+
+`wpl`은 `WinPortableLab.ps1`과 같은 인자를 그대로 받습니다. (`wpl -Action list`, `wpl -Action check -Profile quick` 등)
+
+`wpl` accepts the same arguments as `WinPortableLab.ps1` (`wpl -Action list`, `wpl -Action check -Profile quick`, and so on).
+
+레지스트리에 올리기 전이라면 깃허브에서 바로 설치할 수도 있습니다.
+
+Before the registry release, you can also install straight from GitHub.
+
+```powershell
+npm install -g github:JunesuChoi/win-portable-lab
+```
+
+관리자 권한이 필요한 작업은 실행 중 UAC 확인창으로 승격됩니다.
+
+Tasks that require admin rights elevate themselves through a UAC prompt at launch.
+
 ---
 
 ## 📦 The catalog / 도구 카탈로그
