@@ -1,0 +1,49 @@
+{
+  "name": "@jstrsy08/win-portable-lab",
+  "version": "0.1.0",
+  "description": "One-pack portable Windows 11 diagnostic and maintenance console (WonPak Portable Korea)",
+  "license": "MIT",
+  "private": false,
+  "os": [
+    "win32"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "bin": {
+    "wpl": "bin/wpl.js",
+    "win-portable-lab": "bin/wpl.js"
+  },
+  "files": [
+    "bin/",
+    "WinPortableLab.ps1",
+    "Start.cmd",
+    "scripts/",
+    "src/",
+    "catalog/",
+    "config/",
+    "manifests/",
+    "docs/",
+    "!docs/ko/PRODUCT_PLAN.md",
+    "!docs/en/PRODUCT_PLAN.md",
+    "downloads/SDCardFormatterv5_WinEN_504.zip",
+    "tools/README.md",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "CHANGELOG.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JunesuChoi/win-portable-lab.git"
+  },
+  "homepage": "https://github.com/JunesuChoi/win-portable-lab#readme",
+  "bugs": "https://github.com/JunesuChoi/win-portable-lab/issues",
+  "keywords": [
+    "windows",
+    "diagnostics",
+    "portable",
+    "ssd",
+    "hardware"
+  ]
+}
