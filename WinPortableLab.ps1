@@ -643,6 +643,7 @@ function Show-WplGui {
           <Button x:Name="RefreshButton" Style="{StaticResource NavButton}"/>
           <Button x:Name="BatchDownloadButton" Style="{StaticResource NavButton}"/>
           <Button x:Name="UpdateButton" Style="{StaticResource NavButton}"/>
+          <Button x:Name="CleanupButton" Style="{StaticResource NavButton}"/>
           <Expander x:Name="MoreExpander" Foreground="{DynamicResource InkSubtle}" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Padding="2,4" Margin="0,4,0,0" FontSize="12">
             <StackPanel Margin="0,7,0,0"><Button x:Name="NetworkDriverButton" Style="{StaticResource NavButton}"/><Button x:Name="GithubButton" Style="{StaticResource NavButton}"/><Button x:Name="ValidateButton" Style="{StaticResource NavButton}"/></StackPanel>
           </Expander>
@@ -734,7 +735,7 @@ function Show-WplGui {
 
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)
-    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','StandardButton','DeepButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','BatchDownloadButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','NetworkDriverButton','UpdateButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterRecommendedButton','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
+    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','StandardButton','DeepButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','BatchDownloadButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','NetworkDriverButton','UpdateButton','CleanupButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterRecommendedButton','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
     $ui = @{}
     foreach ($name in $names) { $ui[$name] = $window.FindName($name) }
 
@@ -1809,6 +1810,7 @@ function Show-WplGui {
         $ui.LatestResultButton.Content = Get-WplText -Key GuiLatestResult -Language $code
         $ui.NetworkDriverButton.Content = Get-WplText -Key GuiNetworkDriver -Language $code
         $ui.UpdateButton.Content = Get-WplText -Key GuiSelfUpdate -Language $code
+        $ui.CleanupButton.Content = Get-WplText -Key GuiCleanup -Language $code
         $ui.GithubButton.Content = Get-WplText -Key GuiGithub -Language $code
         $ui.ValidateButton.Content = Get-WplText -Key GuiValidate -Language $code
         $ui.GuideButton.Content = Get-WplText -Key GuiOpenGuide -Language $code
@@ -2348,6 +2350,29 @@ function Show-WplGui {
         catch {
             Set-GuiStatusTone 'fail'
             $ui.StatusText.Text = Get-WplText -Key GuiSelfUpdateFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+            [System.Windows.MessageBox]::Show($ui.StatusText.Text,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null
+        }
+    })
+    $ui.CleanupButton.Add_Click({
+        $retention = Join-Path $Root 'scripts\Manage-WplRetention.ps1'
+        try {
+            $preview = & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $retention -Root $Root -Action preview | ConvertFrom-Json
+            if ([int]$preview.candidateCount -eq 0) {
+                Set-GuiStatusTone 'ok'
+                $ui.StatusText.Text = Get-WplText -Key GuiCleanupNothing -Language $script:GuiLanguage
+                return
+            }
+            $examples = @($preview.candidates | Select-Object -First 5 | ForEach-Object { Split-Path -Leaf ([string]$_.path) }) -join ', '
+            $message = Get-WplText -Key GuiCleanupConfirm -Language $script:GuiLanguage -ArgumentList @([int]$preview.candidateCount,([double]$preview.candidateBytes / 1MB),$examples)
+            $answer = [System.Windows.MessageBox]::Show($message,$window.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Warning)
+            if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
+            $result = & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $retention -Root $Root -Action apply -ConfirmCleanup | ConvertFrom-Json
+            Set-GuiStatusTone 'ok'
+            $ui.StatusText.Text = Get-WplText -Key GuiCleanupComplete -Language $script:GuiLanguage -ArgumentList @([int]$result.candidateCount,([double]$result.candidateBytes / 1MB))
+        }
+        catch {
+            Set-GuiStatusTone 'fail'
+            $ui.StatusText.Text = Get-WplText -Key GuiCleanupFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
             [System.Windows.MessageBox]::Show($ui.StatusText.Text,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Error) | Out-Null
         }
     })

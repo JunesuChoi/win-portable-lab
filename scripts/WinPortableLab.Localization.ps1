@@ -147,6 +147,11 @@ function Get-WplText {
         GuiGithub=@{ko='GitHub 프로젝트';en='GitHub project'}
         GuiValidate=@{ko='도구 무결성 검증';en='Validate tool integrity'}
         GuiSelfUpdate=@{ko='프로젝트 업데이트';en='Update project'}
+        GuiCleanup=@{ko='저장 공간 정리';en='Clean up storage'}
+        GuiCleanupNothing=@{ko='현재 보존 정책에서 정리할 런타임 파일이 없습니다.';en='No runtime files are eligible for cleanup under the retention policy.'}
+        GuiCleanupConfirm=@{ko='정리 예정: {0}개 항목 / {1:N2} MB. 예: {2}. 보고서·권장 결과는 30일 및 최근 30회, 세션은 30일 및 최근 30회, 일반 로그는 14일, 셀프업데이트 백업은 최근 2개를 보존합니다. 이 목록만 삭제할까요?';en='Scheduled for cleanup: {0} item(s) / {1:N2} MB. Examples: {2}. Reports and recommendations retain 30 days and the newest 30 runs, sessions retain 30 days and the newest 30 runs, general logs retain 14 days, and the newest two self-update backups remain. Delete only these items?'}
+        GuiCleanupComplete=@{ko='저장 공간 정리 완료: {0}개 항목 / {1:N2} MB';en='Storage cleanup complete: {0} item(s) / {1:N2} MB'}
+        GuiCleanupFailed=@{ko='저장 공간 정리 미리보기 또는 실행에 실패했습니다: {0}';en='Storage cleanup preview or execution failed: {0}'}
         GuiSelfUpdateChecking=@{ko='GitHub에서 프로젝트 업데이트를 확인하는 중입니다...';en='Checking GitHub for a project update...'}
         GuiSelfUpdateCurrent=@{ko='현재 최신 버전입니다 ({0}).';en='You are up to date ({0}).'}
         GuiSelfUpdateConfirm=@{ko="프로젝트 업데이트를 적용할까요?`n`n현재: {0}`n새 커밋: {1}`n내용: {2}`n`n코드·문서·카탈로그만 백업 후 갱신합니다. 도구, 다운로드, 보고서, 세션, 사용자 지정 실행 경로는 변경하지 않습니다. 적용 후 자동으로 다시 시작합니다.";en="Apply the project update?`n`nCurrent: {0}`nNew commit: {1}`nMessage: {2}`n`nOnly code, documentation, and catalog files are backed up and updated. Tools, downloads, reports, sessions, and user-declared executable paths are not changed. The app restarts when complete."}

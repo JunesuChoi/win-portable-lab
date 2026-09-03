@@ -98,7 +98,7 @@ try {
             Copy-Item -LiteralPath $source -Destination $destination -Force
         }
     }
-    foreach ($configFile in @('tool-launchers.json','stop-conditions.json')) {
+    foreach ($configFile in @('tool-launchers.json','stop-conditions.json','retention-policy.json')) {
         $source = Join-Path $sourceRoot ('config\\' + $configFile)
         if (Test-Path -LiteralPath $source) {
             $destination = Join-Path $resolvedRoot ('config\\' + $configFile)

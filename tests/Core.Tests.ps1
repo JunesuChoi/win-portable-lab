@@ -748,6 +748,20 @@ Describe 'Elevated launch integrity contract' {
         Assert-WplTest ($gui -match 'WaitForProcessId') 'The updater does not wait for the GUI to close before applying files.'
     }
 
+    It 'requires preview and explicit approval before runtime retention deletes files' {
+        $retention = Get-Content -LiteralPath (Join-Path $root 'scripts\Manage-WplRetention.ps1') -Raw
+        Assert-WplTest ($retention -match "ValidateSet\('preview','apply'\)") 'Retention manager has no preview/apply separation.'
+        Assert-WplTest ($retention -match 'ConfirmCleanup') 'Retention manager does not require explicit cleanup approval.'
+        Assert-WplTest ($retention -match 'Refusing cleanup outside runtime output') 'Retention manager does not contain output-root confinement.'
+        Assert-WplTest ($retention -notmatch "Join-Path \$resolvedRoot 'tools'") 'Retention manager must never target portable tools.'
+        $policy = Get-Content -LiteralPath (Join-Path $root 'config\retention-policy.json') -Raw | ConvertFrom-Json
+        Assert-WplTest ($policy.reportAndRecommendation.maxAgeDays -eq 30 -and $policy.reportAndRecommendation.minimumNewestToKeep -eq 30) 'Report retention policy changed unexpectedly.'
+        Assert-WplTest ($policy.logs.maxAgeDays -eq 14 -and $policy.logs.keepSelfUpdateBackups -eq 2) 'Log retention policy changed unexpectedly.'
+        $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($gui -match 'x:Name="CleanupButton"') 'The GUI has no storage cleanup control.'
+        Assert-WplTest ($gui -match 'GuiCleanupConfirm') 'The GUI does not show the cleanup preview confirmation.'
+    }
+
     It 'requires acknowledgement before a user-declared path backs a launcher' {
         # config/user-tool-paths.json is per-machine, unsigned, and lives on the
         # removable medium. Without this gate a read-only tool repointed by that

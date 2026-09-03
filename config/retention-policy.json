@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "reportAndRecommendation": {
+    "maxAgeDays": 30,
+    "minimumNewestToKeep": 30
+  },
+  "sessions": {
+    "maxAgeDays": 30,
+    "minimumNewestToKeep": 30
+  },
+  "logs": {
+    "maxAgeDays": 14,
+    "keepSelfUpdateBackups": 2,
+    "alwaysKeepNamePatterns": [
+      "*-latest.*",
+      "installed-revision.json"
+    ]
+  },
+  "preserveMarkerFile": ".wpl-keep"
+}

@@ -103,6 +103,12 @@ For a command-line check:
 .\scripts\Update-WplSelf.ps1 -Root . -Action check
 ```
 
+### 저장 공간 정리 · Runtime storage cleanup
+
+저장 공간 정리 / Clean up storage는 왼쪽 관리 메뉴에 있습니다. 먼저 삭제 후보와 용량을 보여주고 사용자가 승인해야만 지웁니다. 보고서·권장 결과와 세션은 30일 및 최근 30회를, 일반 로그는 14일을 보존합니다. 셀프업데이트 백업은 최근 2개를 보존합니다. 특정 실행 결과를 남기려면 해당 결과 폴더 안에 .wpl-keep 파일을 만들면 됩니다.
+
+Clean up storage / 저장 공간 정리 is in the left management menu. It previews candidates and size, then deletes only after explicit approval. Reports, recommendations, and sessions retain 30 days and the newest 30 runs; general logs retain 14 days; the newest two self-update backups stay. Create an empty .wpl-keep file inside a run folder to preserve it.
+
 레지스트리에 올리기 전이라면 깃허브에서 바로 설치할 수도 있습니다.
 
 Before the registry release, you can also install straight from GitHub.
@@ -163,9 +169,9 @@ Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly 
 .\scripts\Test-Regression.ps1 -Root .
 ```
 
-테스트 61개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 고부하 도구가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
+테스트 62개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 고부하 도구가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
 
-61 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that a high-load tool refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
+62 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that a high-load tool refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
 
 ---
 
