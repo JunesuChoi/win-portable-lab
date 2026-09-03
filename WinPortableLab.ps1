@@ -931,10 +931,17 @@ function Show-WplGui {
         $dialog.Filter = 'Executable files (*.exe)|*.exe'
         $dialog.CheckFileExists = $true
         if ($dialog.ShowDialog($window) -ne $true) { return }
-        & (Join-Path $Root 'scripts\Set-WplToolPath.ps1') -Root $Root -Action set -Id ([string]$Selected.id) -Path $dialog.FileName -Language $script:GuiLanguage | Out-Null
+        $choice = [System.Windows.MessageBox]::Show((Get-WplText -Key GuiImportChoice -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)),$window.Title,[System.Windows.MessageBoxButton]::YesNoCancel,[System.Windows.MessageBoxImage]::Question)
+        if ($choice -eq [System.Windows.MessageBoxResult]::Cancel) { return }
+        if ($choice -eq [System.Windows.MessageBoxResult]::Yes) {
+            & (Join-Path $Root 'scripts\Import-WplUserTool.ps1') -Root $Root -Id ([string]$Selected.id) -Path $dialog.FileName -ConfirmOwnership -Language $script:GuiLanguage | Out-Null
+            $ui.StatusText.Text = Get-WplText -Key GuiToolImported -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)
+        } else {
+            & (Join-Path $Root 'scripts\Set-WplToolPath.ps1') -Root $Root -Action set -Id ([string]$Selected.id) -Path $dialog.FileName -Language $script:GuiLanguage | Out-Null
+            $ui.StatusText.Text = Get-WplText -Key GuiPathRegistered -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)
+        }
         Set-GuiPlanFromCurrentSnapshot
         Set-GuiStatusTone 'ok'
-        $ui.StatusText.Text = Get-WplText -Key GuiPathRegistered -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)
     }
 
     function Prepare-GuiSelectedTool([object]$Selected) {

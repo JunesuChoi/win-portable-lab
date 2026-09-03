@@ -4,6 +4,12 @@ If you already own a program, register its path instead of downloading it again.
 
 Settings live in `config/user-tool-paths.json`. That file is specific to one machine and is not committed to the repository.
 
+## Copy into OnePack
+
+After choosing an executable in the GUI, select **Yes** to copy the entire parent folder of that EXE into a new purpose-based `tools\...\user-import-*` directory. It records original path, SHA-256, signature status and copy time in `USER-IMPORT-MANIFEST.json`, then connects the copied executable. Copying the folder keeps adjacent DLL and configuration dependencies together. Select **No** to keep a direct path to the original file without copying it.
+
+Use copying only when you have permission to use the program and, where required, redistribute it. For commercial, trial, and Store tools, registering the original path is normally the safer default.
+
 ## Register
 
 ```powershell

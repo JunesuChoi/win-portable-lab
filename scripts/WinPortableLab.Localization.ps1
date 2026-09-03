@@ -167,6 +167,8 @@ function Get-WplText {
         GuiOpenRequiredGuide=@{ko='필요 조건 확인';en='Review requirements'}
         GuiChooseExecutable=@{ko='{0} 실행 파일 선택';en='Choose the {0} executable'}
         GuiPathRegistered=@{ko='{0} 사용자 경로를 등록하고 목록을 갱신했습니다.';en='Registered the user path for {0} and refreshed the list.'}
+        GuiImportChoice=@{ko='{0}을(를) 원팩 tools 폴더로 복사할까요?`n`n예: 실행 파일이 있는 폴더 전체를 원팩에 복사하고 해시·서명·원본 경로를 기록합니다.`n아니요: 원본 위치를 그대로 연결합니다.`n취소: 변경하지 않습니다.`n`n복사하려는 프로그램의 사용·재배포 권한은 사용자가 확인해야 합니다.';en='Copy {0} into the OnePack tools folder?`n`nYes: copies the executable parent folder into OnePack and records hash, signature and original path.`nNo: keeps a direct link to the original location.`nCancel: makes no change.`n`nYou must confirm permission to use and redistribute the program.'}
+        GuiToolImported=@{ko='{0}을(를) 원팩 tools 폴더로 복사하고 연결했습니다.';en='Copied {0} into the OnePack tools folder and connected it.'}
         GuiPrepareChoice=@{ko="{0}을(를) 공식 고정 해시 경로에서 다운로드하려면 '예', 이미 보유한 실행 파일을 등록하려면 '아니요', 취소하려면 '취소'를 누르십시오.";en="For {0}, choose Yes to download from the pinned source, No to register an executable you already have, or Cancel."}
         GuiManualPathOnly=@{ko='{0}은(는) 상용·스토어 또는 사용자 보유 경로 전용 도구입니다. 자동 다운로드하지 않습니다.`n`n공식 출처: {1}`n`n다음 창에서 공식 사본의 실행 파일을 선택하십시오.';en='{0} is a commercial, store-delivered, or user-supplied-path-only tool. It is not downloaded automatically.`n`nOfficial source: {1}`n`nChoose the executable from your official copy in the next dialog.'}
         GuiDownloadStarted=@{ko='{0} 다운로드·검증 창을 열었습니다. 완료 후 시스템 정보를 새로고침하십시오.';en='Opened the download and verification window for {0}. Refresh system information after it completes.'}
@@ -207,6 +209,9 @@ function Get-WplText {
         UserPathNoEntry=@{ko='{0}에 등록된 사용자 경로가 없습니다.';en='No user-declared path is registered for {0}.'}
         UserPathRemoved=@{ko='{0} 사용자 경로를 제거했습니다. 번들 도구 검색으로 되돌아갑니다.';en='Removed the user-declared path for {0}. Falling back to the bundled tools tree.'}
         UserPathVerified=@{ko='사용자 경로 검증 통과. 항목: {0}';en='User-declared path validation passed. Entries: {0}'}
+        UserToolImportConfirmRequired=@{ko='복사하려는 프로그램을 사용할 권한과 필요한 재배포 권한을 확인하려면 -ConfirmOwnership을 지정해야 합니다.';en='Specify -ConfirmOwnership to confirm that you have permission to use and, where needed, redistribute this program.'}
+        UserToolImportAlreadyInside=@{ko='선택한 실행 파일이 이미 원팩 tools 폴더 안에 있습니다. 복사 대신 경로 등록을 사용하십시오: {0}';en='The selected executable is already inside the OnePack tools folder. Register its path instead of copying it: {0}'}
+        UserToolImportCompleted=@{ko='{0}을(를) 원팩으로 복사했습니다: {1}';en='Copied {0} into OnePack: {1}'}
         NetDriverAdapters=@{ko='물리 네트워크 어댑터 {0}개를 확인했습니다.';en='Detected {0} physical network adapter(s).'}
         NetDriverSdioState=@{ko='SDIO 상태: 설치={0}, 인덱스 {1}개, 드라이버 팩 {2}개';en='SDIO state: installed={0}, indexes={1}, driver packs={2}'}
         NetDriverPacksMissing=@{ko='SDIO 인덱스만 있고 실제 드라이버 팩이 없습니다. 오프라인 설치를 하려면 인터넷이 되는 PC에서 SDIO를 실행해 네트워크 팩을 받은 뒤 {0} 폴더를 그대로 복사하십시오.';en='SDIO has indexes but no driver archives. For an offline install, run SDIO on a PC that still has internet, download the network packs, then copy the {0} folder as-is.'}

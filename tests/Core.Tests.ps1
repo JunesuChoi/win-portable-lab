@@ -798,6 +798,17 @@ Describe 'Elevated launch integrity contract' {
         Assert-WplTest (@([regex]::Matches($gui,'GuiOverrideConfirm')).Count -ge 1) 'The individual GUI launch path must confirm an untrusted override.'
     }
 
+    It 'imports an owned tool folder only after confirmation and records provenance' {
+        $importer = Get-Content -LiteralPath (Join-Path $root 'scripts\Import-WplUserTool.ps1') -Raw
+        Assert-WplTest ($importer -match 'ConfirmOwnership') 'The user-tool importer does not require an ownership confirmation.'
+        Assert-WplTest ($importer -match 'Get-ChildItem -LiteralPath \$sourceDirectory.*Copy-Item') 'The importer does not copy the executable parent folder.'
+        Assert-WplTest ($importer -match 'USER-IMPORT-MANIFEST\.json') 'The importer does not write an import provenance manifest.'
+        Assert-WplTest ($importer -match 'sourceSha256' -and $importer -match 'signatureStatus') 'The importer does not record hash and signature evidence.'
+        Assert-WplTest ($importer -match 'StartsWith\(\$toolsRoot') 'The importer can recursively copy from the tools tree.'
+        $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($gui -match 'Import-WplUserTool\.ps1') 'The GUI does not offer import into OnePack.'
+    }
+
     It 'refuses an unpinned or mismatched download instead of skipping the check' {
         # The comparison used to be conditional on the manifest declaring a hash,
         # so a definition without sha256 downloaded and extracted unverified.
