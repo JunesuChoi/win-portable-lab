@@ -141,7 +141,7 @@ Tasks that require admin rights elevate themselves through a UAC prompt at launc
 
 ## 🌏 Bilingual by contract / 이중 언어 계약
 
-사용자에게 보이는 모든 문자열은 한국어와 영어로 존재하며, 한쪽이 빠지면 **테스트가 실패**합니다. 13개 도구별 안내서도 KO/EN 양쪽 존재와 실제 파일 참조가 검증됩니다.
+사용자에게 보이는 모든 문자열은 한국어와 영어로 존재하며, 한쪽이 빠지면 **테스트가 실패**합니다. 카탈로그의 37개 도구는 모두 KO/EN 사용 가이드에 연결되며, 개별 가이드 또는 성격별 운영 가이드 안에서 목적·권장 옵션·판정·중단 기준을 확인할 수 있습니다.
 
 Every operator-facing string exists in Korean and English, and a **test fails** if a localization key is missing either side. The same applies to the 13 per-tool guides: KO and EN are checked for existence and for pointing at real files.
 
@@ -163,9 +163,9 @@ Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly 
 .\scripts\Test-Regression.ps1 -Root .
 ```
 
-테스트 60개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 고부하 도구가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
+테스트 61개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 고부하 도구가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
 
-60 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that a high-load tool refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
+61 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that a high-load tool refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
 
 ---
 

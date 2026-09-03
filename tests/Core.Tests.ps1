@@ -520,6 +520,15 @@ Describe 'KO and EN localization contract' {
         Assert-WplTest ($broken.Count -eq 0) "Guide mapping points at missing documents: $($broken -join ', ')"
     }
 
+    It 'gives every catalog tool a bilingual operating guide' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        $mapped = @([regex]::Matches($source,"'(?<id>[a-z0-9-]+)'\s*\{\s*'(?<doc>[A-Z0-9_]+)'\s*\}") |
+            ForEach-Object { $_.Groups['id'].Value } | Sort-Object -Unique)
+        $data = Get-WplTestData
+        $missing = @($data.Catalog.id | Where-Object { $_ -notin $mapped })
+        Assert-WplTest ($missing.Count -eq 0) "Catalog tools missing a GUI guide mapping: $($missing -join ', ')"
+    }
+
     It 'contains paired non-empty KO and EN text for every localization key' {
         $source = Get-Content -LiteralPath (Join-Path $root 'scripts\WinPortableLab.Localization.ps1') -Raw
         $declared = @([regex]::Matches($source,'(?m)^\s*([A-Za-z][A-Za-z0-9]*)=@\{') | ForEach-Object { $_.Groups[1].Value })

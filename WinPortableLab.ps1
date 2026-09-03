@@ -373,6 +373,27 @@ function Open-WplTextDocument([Parameter(Mandatory)][string]$Path) {
 # fall back to the quick reference rather than failing.
 function Get-WplToolGuideName([string]$CatalogId) {
     switch ($CatalogId) {
+        'diskspd' { 'STORAGE_REFERENCE' }
+        'smartmontools' { 'STORAGE_REFERENCE' }
+        'crystaldiskinfo' { 'STORAGE_REFERENCE' }
+        'crystaldiskmark' { 'STORAGE_REFERENCE' }
+        'validrive' { 'STORAGE_REFERENCE' }
+        'hwinfo' { 'SYSTEM_MONITORING_REFERENCE' }
+        'cpuz' { 'SYSTEM_MONITORING_REFERENCE' }
+        'gpuz' { 'SYSTEM_MONITORING_REFERENCE' }
+        'trafficmonitor' { 'SYSTEM_MONITORING_REFERENCE' }
+        'zentimings' { 'SYSTEM_MONITORING_REFERENCE' }
+        'y-cruncher' { 'CPU_TUNING_REFERENCE' }
+        'intel-xtu' { 'CPU_TUNING_REFERENCE' }
+        'ryzen-master' { 'CPU_TUNING_REFERENCE' }
+        'memtest86plus' { 'BOOT_RECOVERY_REFERENCE' }
+        'amd-cleanup-utility' { 'BOOT_RECOVERY_REFERENCE' }
+        'sysinternals' { 'DRIVER_DIAGNOSTICS_REFERENCE' }
+        'driverstoreexplorer' { 'DRIVER_DIAGNOSTICS_REFERENCE' }
+        'fancontrol' { 'DRIVER_DIAGNOSTICS_REFERENCE' }
+        'bluescreenview' { 'DRIVER_DIAGNOSTICS_REFERENCE' }
+        'usbdeview' { 'DRIVER_DIAGNOSTICS_REFERENCE' }
+        'fulleventlogview' { 'DRIVER_DIAGNOSTICS_REFERENCE' }
         'testmem5' { 'TESTMEM5' }
         'hci-memtest' { 'HCI_MEMTEST' }
         'latencymon' { 'LATENCYMON' }
