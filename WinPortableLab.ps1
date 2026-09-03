@@ -621,8 +621,9 @@ function Show-WplGui {
           <TextBlock x:Name="ManageSectionText" Foreground="{DynamicResource InkTertiary}" FontWeight="Medium" FontSize="10" Margin="2,0,0,7"/>
           <Button x:Name="RefreshButton" Style="{StaticResource NavButton}"/>
           <Button x:Name="BatchDownloadButton" Style="{StaticResource NavButton}"/>
+          <Button x:Name="UpdateButton" Style="{StaticResource NavButton}"/>
           <Expander x:Name="MoreExpander" Foreground="{DynamicResource InkSubtle}" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Padding="2,4" Margin="0,4,0,0" FontSize="12">
-            <StackPanel Margin="0,7,0,0"><Button x:Name="NetworkDriverButton" Style="{StaticResource NavButton}"/><Button x:Name="UpdateButton" Style="{StaticResource NavButton}"/><Button x:Name="GithubButton" Style="{StaticResource NavButton}"/><Button x:Name="ValidateButton" Style="{StaticResource NavButton}"/></StackPanel>
+            <StackPanel Margin="0,7,0,0"><Button x:Name="NetworkDriverButton" Style="{StaticResource NavButton}"/><Button x:Name="GithubButton" Style="{StaticResource NavButton}"/><Button x:Name="ValidateButton" Style="{StaticResource NavButton}"/></StackPanel>
           </Expander>
         </StackPanel>
         </ScrollViewer>
