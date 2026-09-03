@@ -2,6 +2,10 @@
 
 쓰기 검사 전에는 디스크 번호·드라이브 문자·백업 여부를 다시 확인합니다. 원본 데이터가 있는 볼륨에는 쓰기 검사를 하지 않습니다.
 
+## AS SSD Benchmark · ATTO Disk Benchmark · HD Tune Pro
+
+세 도구 모두 공식 사본의 실행 파일을 **도구 경로 추가/편집**으로 등록해서 사용합니다. 자동 다운로드하지 않습니다. AS SSD와 ATTO는 테스트 파일 I/O를 만들므로 회복 대상, 증거 보존 디스크, 여유 공간이 거의 없는 드라이브에는 실행하지 마십시오. HD Tune Pro는 먼저 **Info, Health, Error Scan(읽기)**만 사용합니다. Write Benchmark, Erase, Extra Tests는 대상 디스크와 백업을 다시 확인한 뒤 별도 승인으로만 진행합니다.
+
 ## smartmontools (smartmontools)
 
 smartctl 전체 SMART/NVMe 로그에서 Reallocated, Pending, Media and Data Integrity Errors, Critical Warning을 봅니다. 값이 0이 아니거나 증가하면 벤치마크 대신 백업과 제조사 진단을 먼저 합니다.

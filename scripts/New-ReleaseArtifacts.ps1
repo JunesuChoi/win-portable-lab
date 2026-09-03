@@ -21,7 +21,10 @@ Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $zip -Compressi
 $hash=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
 "$hash  $([IO.Path]::GetFileName($zip))" | Set-Content -LiteralPath "$zip.sha256" -Encoding ascii
 $components=@(Get-WplPackageDefinitions -Root $Root | ForEach-Object {
-    [ordered]@{type='application';name=$_.displayName;version=$_.version;'bom-ref'="pkg:generic/$($_.packageId)@$($_.version)";hashes=@([ordered]@{alg='SHA-256';content=$_.source.sha256})}
+    $component=[ordered]@{type='application';name=$_.displayName;version=$_.version;'bom-ref'="pkg:generic/$($_.packageId)@$($_.version)"}
+    if ($_.package.kind -ne 'user-supplied') { $component.hashes=@([ordered]@{alg='SHA-256';content=$_.source.sha256}) }
+    else { $component.properties=@([ordered]@{name='wpl:acquisition';value='operator-supplied-official-path'}) }
+    $component
 })
 $sbom=[ordered]@{bomFormat='CycloneDX';specVersion='1.5';serialNumber="urn:uuid:$([guid]::NewGuid())";version=1;metadata=[ordered]@{timestamp=(Get-Date).ToUniversalTime().ToString('o');component=[ordered]@{type='application';name='WinPortableLab';version=$Version}};components=$components}
 $sbom | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $OutputPath 'winportablelab.cdx.json') -Encoding utf8

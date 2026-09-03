@@ -87,6 +87,10 @@ function Get-WplText {
         RecCpuStress=@{ko='CPU 계산 안정성을 단계적으로 검사하는 고부하 도구입니다.';en='High-load tool for staged CPU calculation stability testing.'}
         RecMemoryStress=@{ko='메모리 컨트롤러와 RAM 경로의 계산 오류를 검사합니다.';en='Checks calculation errors across the memory controller and RAM path.'}
         RecStorageBaseline=@{ko='제한된 테스트 파일로 저장장치 성능 기준선을 측정합니다.';en='Measures a storage baseline with a bounded test file.'}
+        RecHdTune=@{ko='SMART·정보·읽기 검사부터 확인합니다. 쓰기 벤치마크·지우기는 별도 대상 확인과 백업 뒤에만 진행하십시오.';en='Start with SMART, information and read-only scans. Run write benchmarks or erase only after separately confirming the target and backup.'}
+        RecMemoryBenchmark=@{ko='메모리 대역폭·지연 시간 기준선을 비교합니다. 안정성 검증을 대신하지는 않습니다.';en='Compares memory bandwidth and latency baselines; it does not replace stability validation.'}
+        RecRenderBenchmark=@{ko='실제 렌더링 부하로 CPU·GPU 성능을 비교합니다. 온도와 전력을 계속 감시하십시오.';en='Compares CPU and GPU performance with a real rendering workload. Monitor temperatures and power continuously.'}
+        RecGpuBenchmark=@{ko='그래픽 부하와 안정성 기준선을 비교합니다. 오류·멈춤·WHEA가 있으면 즉시 중단하십시오.';en='Compares graphics-load and stability baselines. Stop immediately for errors, freezes or WHEA events.'}
         RecDiskSpd=@{ko='DiskSpd 명령과 옵션을 연결합니다. 부하는 자동 시작하지 않습니다.';en='Connects DiskSpd commands and options without starting a workload.'}
         RecOcct=@{ko='복합 부하와 오류 검출용이며 센서 감시와 중단 조건이 필요합니다.';en='Combined-load error detection requiring sensor monitoring and stop conditions.'}
         RecBootMemory=@{ko='Windows 밖에서 RAM을 검사하는 USB 부팅형 도구입니다.';en='Bootable USB tool for testing RAM outside Windows.'}
@@ -164,6 +168,7 @@ function Get-WplText {
         GuiChooseExecutable=@{ko='{0} 실행 파일 선택';en='Choose the {0} executable'}
         GuiPathRegistered=@{ko='{0} 사용자 경로를 등록하고 목록을 갱신했습니다.';en='Registered the user path for {0} and refreshed the list.'}
         GuiPrepareChoice=@{ko="{0}을(를) 공식 고정 해시 경로에서 다운로드하려면 '예', 이미 보유한 실행 파일을 등록하려면 '아니요', 취소하려면 '취소'를 누르십시오.";en="For {0}, choose Yes to download from the pinned source, No to register an executable you already have, or Cancel."}
+        GuiManualPathOnly=@{ko='{0}은(는) 상용·스토어 또는 사용자 보유 경로 전용 도구입니다. 자동 다운로드하지 않습니다.`n`n공식 출처: {1}`n`n다음 창에서 공식 사본의 실행 파일을 선택하십시오.';en='{0} is a commercial, store-delivered, or user-supplied-path-only tool. It is not downloaded automatically.`n`nOfficial source: {1}`n`nChoose the executable from your official copy in the next dialog.'}
         GuiDownloadStarted=@{ko='{0} 다운로드·검증 창을 열었습니다. 완료 후 시스템 정보를 새로고침하십시오.';en='Opened the download and verification window for {0}. Refresh system information after it completes.'}
         GuiOpenGuide=@{ko='권장 안내서 열기';en='Open recommendation guide'}
         GuiOpenToolGuide=@{ko='선택 도구 사용법';en='Selected tool guide'}

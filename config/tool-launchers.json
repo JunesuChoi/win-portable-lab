@@ -47,5 +47,12 @@
   { "id": "sd-card-formatter", "catalogId": "sd-card-formatter", "pattern": "SD Card Formatter 5.0.4 Setup EN.exe", "risk": "formats-removable-media", "launchMode": "installer" },
   { "id": "glary-utilities", "catalogId": "glary-utilities", "pattern": "GlaryUtilities5Portable.exe", "risk": "system-changing", "launchMode": "gui" },
   { "id": "macrorit-partition-expert", "catalogId": "macrorit-partition-expert", "pattern": "dm.exe", "risk": "partition-modify", "launchMode": "gui" },
-  { "id": "diskgenius", "catalogId": "diskgenius", "pattern": "DiskGenius.exe", "risk": "partition-modify", "launchMode": "gui" }
+  { "id": "diskgenius", "catalogId": "diskgenius", "pattern": "DiskGenius.exe", "risk": "partition-modify", "launchMode": "gui" },
+  { "id": "as-ssd-benchmark", "catalogId": "as-ssd-benchmark", "pattern": "AS SSD Benchmark*.exe", "risk": "writes-test-file", "launchMode": "gui" },
+  { "id": "atto-disk-benchmark", "catalogId": "atto-disk-benchmark", "pattern": "ATTO Disk Benchmark*.exe", "risk": "writes-test-file", "launchMode": "gui" },
+  { "id": "hd-tune-pro", "catalogId": "hd-tune-pro", "pattern": "HDTunePro.exe", "risk": "mixed-manual", "launchMode": "gui" },
+  { "id": "aida64-extreme", "catalogId": "aida64-extreme", "pattern": "aida64.exe", "risk": "high-load", "launchMode": "gui" },
+  { "id": "cinebench-2024", "catalogId": "cinebench-2024", "pattern": "Cinebench.exe", "risk": "high-load", "launchMode": "gui" },
+  { "id": "3dmark", "catalogId": "3dmark", "pattern": "3DMark.exe", "risk": "very-high-load", "launchMode": "gui" },
+  { "id": "blender-benchmark", "catalogId": "blender-benchmark", "pattern": "benchmark-launcher.exe", "risk": "very-high-load", "launchMode": "gui" }
 ]

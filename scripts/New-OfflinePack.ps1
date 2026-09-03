@@ -28,7 +28,8 @@ foreach ($definition in @(Get-WplPackageDefinitions -Root $Root)) {
         redistributable=[bool]$definition.redistribution.allowed; included=$false; status='not-requested'
         sha256=$definition.source.sha256
     }
-    if ($IncludeRedistributableArchives) {
+    if ($definition.package.kind -eq 'user-supplied') { $entry.status='operator-supplied-no-archive' }
+    elseif ($IncludeRedistributableArchives) {
         if (-not $definition.redistribution.allowed) { $entry.status='restricted-by-license' }
         elseif (-not (Test-Path -LiteralPath $archive -PathType Leaf)) { $entry.status='cache-missing' }
         else {

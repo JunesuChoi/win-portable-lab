@@ -1,8 +1,8 @@
 ﻿﻿﻿﻿# WinPortableLab
 
-**USB 하나로 끝내는 Windows 11 하드웨어 진단 콘솔. 검증된 34개 도구, 호스트에는 아무것도 설치하지 않습니다.**
+**USB 하나로 끝내는 Windows 11 하드웨어 진단 콘솔. 44개 도구 카탈로그, 호스트에는 아무것도 설치하지 않습니다.**
 
-**A portable Windows 11 hardware diagnostics console. One USB stick, 34 verified tools, zero installers on the host.**
+**A portable Windows 11 hardware diagnostics console. One USB stick, a 44-tool catalog, zero installers on the host.**
 
 [![CI](https://github.com/JunesuChoi/win-portable-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/JunesuChoi/win-portable-lab/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
@@ -33,9 +33,9 @@ Every tool has a pinned SHA-256, a declared risk level, a recorded launch mode, 
 
 ### 1. 위험도는 경고문이 아니라 타입입니다 · Risk is a first-class type, not a README warning
 
-45개 런처가 각자 위험 등급을 선언합니다. 22개는 읽기 전용이라 즉시 실행되고, 나머지 23개는 데이터를 쓰거나 발열을 만들거나 드라이버를 바꾸므로 **모두 명시적 승인**을 요구합니다. 파괴적 도구는 프로필 게이트 뒤에 남으며, 그 게이트는 선의가 아니라 회귀 테스트가 지킵니다.
+54개 런처가 각자 위험 등급을 선언합니다. 읽기 전용 도구만 즉시 실행되고, 데이터를 쓰거나 발열을 만들거나 드라이버를 바꾸는 도구는 **모두 명시적 승인**을 요구합니다. 파괴적 도구는 프로필 게이트 뒤에 남으며, 그 게이트는 선의가 아니라 회귀 테스트가 지킵니다.
 
-Each of the 45 launchers declares a risk tier. 22 are read-only and launch immediately. The other 23 write data, generate heat, or change drivers, and every one of them requires **explicit acknowledgement**. Destructive tools stay behind a profile gate, and the gate is enforced by a regression test rather than by good intentions.
+Each of the 54 launchers declares a risk tier. Only read-only tools launch immediately; tools that write data, generate heat, or change drivers require **explicit acknowledgement**. Destructive tools stay behind a profile gate, and the gate is enforced by a regression test rather than by good intentions.
 
 ### 2. 해시 고정이 실제로 빌드를 실패시킵니다 · Hash pinning that actually fails the build
 
@@ -125,9 +125,9 @@ Tasks that require admin rights elevate themselves through a UAC prompt at launc
 
 ## 📦 The catalog / 도구 카탈로그
 
-용도가 이름에 드러나는 9개 폴더에 34개 도구가 있습니다. 폴더 이름만 봐도 그 도구를 어디에 쓰는지 알 수 있습니다.
+용도가 이름에 드러나는 10개 폴더에 44개 도구가 있습니다. 폴더 이름만 봐도 그 도구를 어디에 쓰는지 알 수 있습니다.
 
-34 tools across 9 purpose-named folders, so the layout tells you what a tool is for before you open it.
+44 tools across 10 purpose-named folders, so the layout tells you what a tool is for before you open it.
 
 | 폴더 / Folder | 영역 / Covers | 주요 도구 / Notable |
 |---|---|---|

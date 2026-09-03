@@ -70,6 +70,15 @@ if ($wanted.Count) {
     if ($unknown.Count) { throw (Get-WplText -Key UnknownDownloadId -Language $Language -ArgumentList @($unknown -join ', ')) }
     $packages = @($packages | Where-Object { $_.packageId -in $wanted -or $_.catalogId -in $wanted })
 }
+# A path-only definition deliberately has no archive hash.  Never turn a
+# catalog entry for commercial/store software into an unverified downloader.
+$manualPackages = @($packages | Where-Object { $_.package.kind -eq 'user-supplied' })
+if ($manualPackages.Count) {
+    foreach ($package in $manualPackages) {
+        Write-Host ("{0}: register your verified executable path from {1}; automatic download is intentionally unavailable." -f $package.displayName,$package.source.url) -ForegroundColor Yellow
+    }
+    $packages = @($packages | Where-Object { $_.package.kind -ne 'user-supplied' })
+}
 if (-not $IncludeHighLoad) { $packages = @($packages | Where-Object { -not $_.risk.highLoad }) }
 if ($ListOnly) {
     $packages | Select-Object packageId,catalogId,version,@{n='highLoad';e={$_.risk.highLoad}},@{n='source';e={$_.source.url}} | Format-Table -AutoSize

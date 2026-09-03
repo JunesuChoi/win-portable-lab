@@ -41,10 +41,13 @@ Describe 'Package and catalog definitions' {
         Assert-WplTest (@($data.Packages.packageId | Sort-Object -Unique).Count -eq $data.Packages.Count) 'Package ids are not unique.'
     }
 
-    It 'pins every package archive to SHA-256' {
+    It 'pins every automatic package archive to SHA-256 and marks manual paths explicitly' {
         $data = Get-WplTestData
-        $invalid = @($data.Packages | Where-Object { [string]$_.source.sha256 -notmatch '^[A-Fa-f0-9]{64}$' })
+        $invalid = @($data.Packages | Where-Object { $_.package.kind -ne 'user-supplied' -and [string]$_.source.sha256 -notmatch '^[A-Fa-f0-9]{64}$' })
         Assert-WplTest ($invalid.Count -eq 0) "Packages without a valid SHA-256: $($invalid.packageId -join ', ')"
+        $manual = @($data.Packages | Where-Object { $_.package.kind -eq 'user-supplied' })
+        $badManual = @($manual | Where-Object { $_.source.trust -ne 'user-supplied-official' -or $_.redistribution.allowed })
+        Assert-WplTest ($badManual.Count -eq 0) "Manual packages must be official-path-only and non-redistributable: $($badManual.packageId -join ', ')"
     }
 
     It 'describes every package and launcher in the catalog' {
@@ -804,6 +807,7 @@ Describe 'Elevated launch integrity contract' {
         $verify = [regex]::Match($installer,'(?s)\$expected = \[string\]\$package\.source\.sha256.*?\n    \}')
         Assert-WplTest ($verify.Success) 'The verification block could not be located.'
         Assert-WplTest ($verify.Value -match 'Remove-Item') 'A rejected archive is left on disk for a later unverified run.'
+        Assert-WplTest ($installer -match "package.kind -eq 'user-supplied'") 'Path-only definitions are not explicitly excluded from automatic downloads.'
     }
 
     It 'keeps executable resolution and the safe-launch rule in one place' {

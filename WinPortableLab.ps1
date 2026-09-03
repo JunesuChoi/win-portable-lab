@@ -176,6 +176,8 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
     if ($SelectedProfile -in @('standard','deep','storage','all')) {
         Add-Candidate $candidates 'crystaldiskmark' 'guided-test' 'RecStorageBaseline'
         Add-Candidate $candidates 'diskspd-help' 'guided-test' 'RecDiskSpd'
+        Add-Candidate $candidates 'as-ssd-benchmark' 'guided-test' 'RecStorageBaseline'
+        Add-Candidate $candidates 'atto-disk-benchmark' 'guided-test' 'RecStorageBaseline'
     }
     if ($SelectedProfile -in @('deep','memory','all')) {
         Add-Candidate $candidates 'occt' 'guided-test' 'RecOcct'
@@ -187,6 +189,8 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
     if ($SelectedProfile -in @('deep','memory','all')) {
         Add-Candidate $candidates 'hci-memtest' 'guided-test' 'RecHciMemtest'
         Add-Candidate $candidates 'ventoy' 'conditional-boot-media' 'RecVentoy'
+        Add-Candidate $candidates 'aida64-extreme' 'guided-test' 'RecMemoryBenchmark'
+        Add-Candidate $candidates 'cinebench-2024' 'guided-test' 'RecRenderBenchmark'
     }
     if ($SelectedProfile -in @('storage','all')) {
         Add-Candidate $candidates 'wiztree' 'recommended-now' 'RecWizTree'
@@ -201,11 +205,14 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
         Add-Candidate $candidates 'validrive' 'conditional-usb-only' 'RecUsbCapacity'
         Add-Candidate $candidates 'macrorit-partition-expert' 'conditional-partition-write' 'RecPartitionMacrorit'
         Add-Candidate $candidates 'diskgenius' 'conditional-partition-write' 'RecPartitionDiskGenius'
+        Add-Candidate $candidates 'hd-tune-pro' 'guided-test' 'RecHdTune'
     }
     if ($SelectedProfile -in @('gpu','all')) {
         Add-Candidate $candidates 'ddu' 'conditional-driver-recovery' 'RecDdu'
         $gpuNames = @($settings.detected.graphics | ForEach-Object { [string]$_.name }) -join '; '
         if ($gpuNames -match '(?i)AMD|Radeon') { Add-Candidate $candidates 'amd-cleanup-utility' 'conditional-driver-recovery' 'RecAmdCleanup' }
+        Add-Candidate $candidates '3dmark' 'guided-test' 'RecGpuBenchmark'
+        Add-Candidate $candidates 'blender-benchmark' 'guided-test' 'RecRenderBenchmark'
     }
     else {
         # Keep driver-recovery tools discoverable outside the GPU profile without
@@ -324,7 +331,8 @@ function Invoke-IntegratedCheck([string]$SelectedProfile,[switch]$FastRecommenda
     $connection = New-ProgramConnectionPlan -RecommendationDirectory $recommendationDirectory -SelectedProfile $SelectedProfile
 
     if ($InstallMissing) {
-        $missing = @($connection.Plan.programs | Where-Object { -not $_.installed } | Select-Object -ExpandProperty catalogId -Unique)
+        $automaticCatalogIds = @(Get-WplPackageDefinitions -Root $Root | Where-Object { $_.package.kind -ne 'user-supplied' } | ForEach-Object { [string]$_.catalogId })
+        $missing = @($connection.Plan.programs | Where-Object { -not $_.installed -and $_.catalogId -in $automaticCatalogIds } | Select-Object -ExpandProperty catalogId -Unique)
         if ($missing.Count) {
             Write-Host (Get-WplText -Key MissingPrograms -Language $Language -ArgumentList @($missing -join ', ')) -ForegroundColor Yellow
             & (Join-Path $Root 'scripts\Install-PortableTools.ps1') -Root $Root -Id ($missing -join ',') -IncludeHighLoad -Language $Language
@@ -417,6 +425,13 @@ function Get-WplToolGuideName([string]$CatalogId) {
         'glary-utilities' { 'GLARY_UTILITIES' }
         'macrorit-partition-expert' { 'MACRORIT_PARTITION_EXPERT' }
         'diskgenius' { 'DISKGENIUS' }
+        'as-ssd-benchmark' { 'STORAGE_REFERENCE' }
+        'atto-disk-benchmark' { 'STORAGE_REFERENCE' }
+        'hd-tune-pro' { 'STORAGE_REFERENCE' }
+        'aida64-extreme' { 'PERFORMANCE_BENCHMARK_REFERENCE' }
+        'cinebench-2024' { 'PERFORMANCE_BENCHMARK_REFERENCE' }
+        '3dmark' { 'PERFORMANCE_BENCHMARK_REFERENCE' }
+        'blender-benchmark' { 'PERFORMANCE_BENCHMARK_REFERENCE' }
         default { $null }
     }
 }
@@ -925,6 +940,12 @@ function Show-WplGui {
     function Prepare-GuiSelectedTool([object]$Selected) {
         $package = @(Get-WplPackageDefinitions -Root $Root | Where-Object { [string]$_.catalogId -eq [string]$Selected.catalogId }) | Select-Object -First 1
         if (-not $package) { Select-GuiExistingExecutable $Selected; return }
+        if ([string]$package.package.kind -eq 'user-supplied') {
+            $message = Get-WplText -Key GuiManualPathOnly -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName,[string]$package.source.url)
+            [System.Windows.MessageBox]::Show($message,$window.Title,[System.Windows.MessageBoxButton]::OK,[System.Windows.MessageBoxImage]::Information) | Out-Null
+            Select-GuiExistingExecutable $Selected
+            return
+        }
         $message = Get-WplText -Key GuiPrepareChoice -Language $script:GuiLanguage -ArgumentList @([string]$Selected.displayName)
         $answer = [System.Windows.MessageBox]::Show($message,$window.Title,[System.Windows.MessageBoxButton]::YesNoCancel,[System.Windows.MessageBoxImage]::Information)
         if ($answer -eq [System.Windows.MessageBoxResult]::Cancel) { return }
@@ -2175,7 +2196,10 @@ function Show-WplGui {
             return
         }
         if (-not $script:GuiPlan) { [System.Windows.MessageBox]::Show((Get-WplText -Key GuiNoPlan -Language $script:GuiLanguage),$window.Title) | Out-Null; return }
-        $packageCatalogIds = @(Get-WplPackageDefinitions -Root $Root | ForEach-Object { [string]$_.catalogId })
+        # Commercial, store-delivered and operator-supplied tools must use the
+        # per-tool path registration flow.  The batch button downloads only
+        # archives with a pinned SHA-256.
+        $packageCatalogIds = @(Get-WplPackageDefinitions -Root $Root | Where-Object { $_.package.kind -ne 'user-supplied' } | ForEach-Object { [string]$_.catalogId })
         $missing = @($script:GuiPlan.programs |
             Where-Object { -not $_.installed -and $_.catalogId -and $packageCatalogIds -contains [string]$_.catalogId } |
             Select-Object -ExpandProperty catalogId -Unique)

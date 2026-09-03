@@ -79,8 +79,10 @@ try {
             }
         }
         if ($definition.catalogId -notin @($catalog.id)) { Add-Failure "Package '$($definition.packageId)' references unknown catalog id '$($definition.catalogId)'." }
-        if ($definition.package.kind -notin @('zip','7z-sfx','exe')) { Add-Failure "Package '$($definition.packageId)' has invalid package kind." }
-        if ([string]$definition.source.sha256 -notmatch '^[A-Fa-f0-9]{64}$') { Add-Failure "Package '$($definition.packageId)' must pin a SHA-256 hash." }
+        if ($definition.package.kind -notin @('zip','7z-sfx','exe','user-supplied')) { Add-Failure "Package '$($definition.packageId)' has invalid package kind." }
+        $userSupplied = $definition.package.kind -eq 'user-supplied'
+        if ($userSupplied -and $definition.source.trust -ne 'user-supplied-official') { Add-Failure "User-supplied package '$($definition.packageId)' must declare user-supplied-official trust." }
+        if (-not $userSupplied -and [string]$definition.source.sha256 -notmatch '^[A-Fa-f0-9]{64}$') { Add-Failure "Package '$($definition.packageId)' must pin a SHA-256 hash." }
         if ([string]$definition.source.url -notmatch '^https://') {
             $httpException = $definition.source.url -match '^http://' -and $definition.source.trust -match 'signed-and-hash-pinned'
             if (-not $httpException) { Add-Failure "Package '$($definition.packageId)' uses an unsafe source URL." }
