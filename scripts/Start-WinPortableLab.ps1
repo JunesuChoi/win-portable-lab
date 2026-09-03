@@ -19,6 +19,12 @@ if (-not $NoElevation -and -not $isAdministrator) {
     $arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "{0}" -Mode {1} -Language {2}' -f $PSCommandPath,$Mode,$Language
     Write-Host (Get-WplText -Key ElevationRequest -Language $Language) -ForegroundColor Cyan
     try {
+        # Smart mode opens the WPF console. Do not leave this non-elevated
+        # bootstrap console waiting behind it for the rest of the session.
+        if ($Mode -eq 'smart') {
+            Start-Process -FilePath $hostExecutable -ArgumentList $arguments -Verb RunAs
+            exit 0
+        }
         $elevated = Start-Process -FilePath $hostExecutable -ArgumentList $arguments -Verb RunAs -Wait -PassThru
         exit $elevated.ExitCode
     }

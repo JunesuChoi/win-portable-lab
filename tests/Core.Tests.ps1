@@ -187,6 +187,16 @@ Describe 'Elevation and detailed inventory contract' {
         Assert-WplTest ((Get-Command (Join-Path $root 'scripts\Start-WinPortableLab.ps1')).Parameters.Keys -contains 'NoElevation') 'Start-WinPortableLab.ps1 lacks -NoElevation.'
     }
 
+    It 'does not leave a bootstrap console behind an elevated GUI' {
+        $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        $starter = Get-Content -LiteralPath (Join-Path $root 'scripts\Start-WinPortableLab.ps1') -Raw
+        $cmd = Get-Content -LiteralPath (Join-Path $root 'Start.cmd') -Raw
+        Assert-WplTest ($gui -match 'if \(\$Action -eq ''gui''\)') 'GUI elevation does not have a non-wait handoff.'
+        Assert-WplTest ($starter -match 'if \(\$Mode -eq ''smart''\)') 'Smart launcher elevation does not have a non-wait handoff.'
+        Assert-WplTest ($cmd -match 'if not "%EXIT_CODE%"=="0" \(') 'Start.cmd does not scope its pause to failure.'
+        Assert-WplTest ($cmd -notmatch "(?m)^pause$") 'Start.cmd still pauses unconditionally after successful GUI launch.'
+    }
+
     It 'keeps detailed inventory collections in the report source' {
         $source = Get-Content -LiteralPath (Join-Path $root 'scripts\Invoke-Inventory.ps1') -Raw
         foreach ($name in @('StorageReliability','Volumes','Partitions','Tpm','BitLockerVolumes','DeviceGuard','SignedDrivers','HotFixes','PowerPlan')) {

@@ -54,6 +54,13 @@ if (-not $NoElevation -and -not (Test-WplCurrentAdministrator)) {
     $elevationArguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "{0}" -ElevationPayload {1}' -f $PSCommandPath,$encoded
     Write-Host (Get-WplText -Key ElevationRequest -Language $Language) -ForegroundColor Cyan
     try {
+        # A GUI has its own elevated process and message loop. Waiting here
+        # leaves the non-admin bootstrap console on screen for the whole GUI
+        # session, which looks like a stalled launch when opened from Start.cmd.
+        if ($Action -eq 'gui') {
+            Start-Process -FilePath $hostExecutable -ArgumentList $elevationArguments -Verb RunAs
+            exit 0
+        }
         $elevated = Start-Process -FilePath $hostExecutable -ArgumentList $elevationArguments -Verb RunAs -Wait -PassThru
         exit $elevated.ExitCode
     }
