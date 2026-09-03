@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packageId": "diskgenius",
+  "catalogId": "diskgenius",
+  "displayName": "DiskGenius Free",
+  "version": "6.2.0.1829",
+  "package": {
+    "kind": "zip",
+    "fileName": "DGEng6201829_x64.zip"
+  },
+  "source": {
+    "url": "https://www.diskgenius.com/dyna_download/?software=DGEng6201829_x64.zip",
+    "trust": "official-publisher",
+    "sha256": "36CE2365A8D243BC8BE37D2E82FC3E30BBEF76224453A3319970BA064AC73D84",
+    "referer": "https://www.diskgenius.com/download.php"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": true,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Downloaded on demand from the official vendor endpoint. Free edition remains subject to the DiskGenius EULA."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

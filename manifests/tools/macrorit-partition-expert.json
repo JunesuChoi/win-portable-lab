@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packageId": "macrorit-partition-expert",
+  "catalogId": "macrorit-partition-expert",
+  "displayName": "Macrorit Partition Expert Free",
+  "version": "8.9.2",
+  "package": {
+    "kind": "zip",
+    "fileName": "mde-free-portable.zip"
+  },
+  "source": {
+    "url": "https://disk-tool.com/download/mde/mde-free-portable.zip",
+    "trust": "official-publisher",
+    "sha256": "DD7738FCD346A0E8745DE9D96F4E0E1DA1F1D7C57F18386CA1CDB3749AE73B52",
+    "referer": "https://macrorit.com/partition-magic/partition-expert-free-edition.html"
+  },
+  "risk": {
+    "highLoad": false,
+    "writesData": true,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": false,
+    "note": "Downloaded on demand from the official CDN. Free edition remains subject to the Macrorit EULA."
+  },
+  "update": {
+    "strategy": "manual"
+  }
+}

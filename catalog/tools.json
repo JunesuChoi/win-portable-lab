@@ -418,5 +418,29 @@
     "risk": "system-changing",
     "automation": "guided-manual-only",
     "notes": "Maintenance suite used here for read-only inspection such as startup entries, disk analysis and system information. The package also ships registry cleaning, shredding, a boot-defragment kernel driver and background services; those write and cleanup features stay manual and are outside the supported scope."
+  },
+  {
+    "id": "macrorit-partition-expert",
+    "name": "Macrorit Partition Expert Free",
+    "category": "partition-management",
+    "purposeFolder": "10-Partition-Management",
+    "distribution": "download-on-demand",
+    "homepage": "https://macrorit.com/partition-magic/partition-expert-free-edition.html",
+    "license": "Freeware; Macrorit EULA applies",
+    "risk": "partition-modify",
+    "automation": "guided-manual-only",
+    "notes": "Official x64 portable ZIP. Free tier covers create, delete, format, resize, move and non-system MBR/GPT conversion with no paywalled apply step. GUI is launched for the operator only; this project never scripts partition writes. Binary is vendor-signed and SHA-256 pinned."
+  },
+  {
+    "id": "diskgenius",
+    "name": "DiskGenius Free",
+    "category": "partition-management",
+    "purposeFolder": "10-Partition-Management",
+    "distribution": "download-on-demand",
+    "homepage": "https://www.diskgenius.com/download.php",
+    "license": "Freeware edition; DiskGenius EULA applies",
+    "risk": "partition-modify",
+    "automation": "guided-manual-only",
+    "notes": "Official English portable ZIP. Advanced secondary tool: MBR/GPT repair, bad-sector scan and disk cloning. Powerful low-level operations are operator-driven only; recovery saves are paid-tier and out of scope. Never substitute cracked PartitionGuru builds; the vendor-signed binary is SHA-256 pinned."
   }
 ]

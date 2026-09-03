@@ -45,9 +45,9 @@ Repository validation rejects any package definition without a valid 64-characte
 
 ### 3. 런처 메뉴가 아니라 추천 엔진입니다 · A recommendation engine, not a launcher menu
 
-콘솔은 인벤토리를 수집하고 최근 7일의 WHEA·Kernel-Power 이벤트와 대조한 뒤 장비별 계획을 만듭니다. 이미 하드웨어 오류가 보이는 시스템이라면 `diagnostic-baseline-only`로 내려가며, 오버클럭 검증을 다음 단계로 제시하지 않습니다.
+콘솔은 인벤토리를 수집하고 최근 7일의 WHEA·Kernel-Power 이벤트와 대조한 뒤 장비별 계획을 만듭니다. 이미 하드웨어 오류가 보이는 시스템이라면 고부하·쓰기·튜닝 계열 항목에 경고 문구를 붙여 알려주되, 실행 여부는 사용자 판단에 맡깁니다.
 
-The console collects inventory, correlates it with a 7-day WHEA and Kernel-Power window, then builds a per-machine plan. If the system already shows hardware errors, it downgrades to `diagnostic-baseline-only` and refuses to present overclock validation as a next step.
+The console collects inventory, correlates it with a 7-day WHEA and Kernel-Power window, then builds a per-machine plan. If the system already shows hardware errors, it flags high-load, write, and tuning checks with a visible warning instead of hiding or blocking them.
 
 ### 4. 남에게 넘길 수 있는 증거 · Evidence you can hand to someone else
 

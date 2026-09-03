@@ -45,5 +45,7 @@
   ,
   { "id": "sdio", "catalogId": "sdio", "pattern": "SDIO_x64_R830.exe", "risk": "system-changing-reboot", "launchMode": "gui" },
   { "id": "sd-card-formatter", "catalogId": "sd-card-formatter", "pattern": "SD Card Formatter 5.0.4 Setup EN.exe", "risk": "formats-removable-media", "launchMode": "installer" },
-  { "id": "glary-utilities", "catalogId": "glary-utilities", "pattern": "GlaryUtilities5Portable.exe", "risk": "system-changing", "launchMode": "gui" }
+  { "id": "glary-utilities", "catalogId": "glary-utilities", "pattern": "GlaryUtilities5Portable.exe", "risk": "system-changing", "launchMode": "gui" },
+  { "id": "macrorit-partition-expert", "catalogId": "macrorit-partition-expert", "pattern": "dm.exe", "risk": "partition-modify", "launchMode": "gui" },
+  { "id": "diskgenius", "catalogId": "diskgenius", "pattern": "DiskGenius.exe", "risk": "partition-modify", "launchMode": "gui" }
 ]

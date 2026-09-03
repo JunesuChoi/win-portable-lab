@@ -81,7 +81,8 @@ Describe 'Launcher and profile relationships' {
         Assert-WplTest (-not (Test-WplBaselineBlockedRisk -RecommendationMode 'conservative-baseline' -Risk 'high-load')) 'A clean baseline still blocks high-load guidance.'
         $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
         Assert-WplTest ($gui -match 'Test-WplBaselineBlockedRisk') 'The connection plan does not call the tested workload gate.'
-        Assert-WplTest ($gui.Contains("state = if (`$baselineBlocked) { 'diagnostic-baseline-only' }")) 'Blocked rows are not visibly marked in the generated plan.'
+        Assert-WplTest ($gui.Contains("`$baselineWarning")) 'The connection plan ignores the baseline warning signal.'
+        Assert-WplTest (-not $gui.Contains("state = if (`$baselineBlocked) { 'diagnostic-baseline-only' }")) 'Rows are still hard-blocked by the baseline gate.'
     }
 
     It 'enumerates every launcher through the shared array reader on both runtimes' {

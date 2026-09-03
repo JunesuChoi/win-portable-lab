@@ -15,3 +15,4 @@ Tools are grouped by diagnostic purpose. `SOURCE.json` records provenance and ri
 | `07-System-Driver-Diagnostics` | Windows, 충돌, 이벤트, USB 진단 / Windows, crash, event and USB diagnostics |
 | `08-Network-Traffic-Monitoring` | 네트워크 속도와 작업 표시줄 자원 모니터링 / network throughput and taskbar resource monitoring |
 | `09-Driver-Detection-Maintenance` | 드라이버 자동 감지와 시스템 유지관리 / driver detection and system maintenance |
+| `10-Partition-Management` | 파티션 구조 변경과 복구, 최상위 위험 / partition structure changes and repair, top risk tier |

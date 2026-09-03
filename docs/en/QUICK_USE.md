@@ -30,6 +30,8 @@ Select a tool in the GUI list, or open it with the command below. The command on
 | Naraeon Dirty Test (`naraeon-dirty-test`) | Sustained write after SLC cache | Speed collapse during large copies | Post-cache speed does not fall apart |
 | H2testw (`h2testw`) | Full free-space write and read integrity | Suspected fake capacity or corruption | Zero bytes in error |
 | ValiDrive (`validrive`) | USB declared-capacity spot check | Fast USB authenticity check | Every probed region responds |
+| Macrorit Partition Expert (`macrorit-partition-expert`) | Create, delete, format and resize partitions | When the partition layout must change | Target disk and resulting sizes match the plan |
+| DiskGenius (`diskgenius`) | MBR/GPT repair, bad-sector scan, cloning | When advanced recovery or inspection is needed | No new defects appear between scans |
 
 ## CPU and memory stability
 

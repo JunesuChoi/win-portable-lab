@@ -65,7 +65,7 @@ function Test-WplBaselineBlockedRisk {
     if ($RecommendationMode -ne 'diagnostic-baseline-only') { return $false }
     # A dirty diagnostic baseline blocks workloads that can add heat, writes or
     # tuning changes. Read-only diagnosis and driver recovery remain available.
-    return $Risk -match '^(?:high-load|very-high-load|writes-test-file|fills-free-space-high-write|writes-spot-checks-usb|installer-changes-cpu-settings|installer-changes-cpu-memory-settings)$'
+    return $Risk -match '^(?:high-load|very-high-load|writes-test-file|fills-free-space-high-write|writes-spot-checks-usb|installer-changes-cpu-settings|installer-changes-cpu-memory-settings|partition-modify)$'
 }
 
 # Row visibility for the console list. This lived inline in the GUI as a switch

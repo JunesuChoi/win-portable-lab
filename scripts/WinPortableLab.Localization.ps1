@@ -93,13 +93,15 @@ function Get-WplText {
         RecDirty=@{ko='SLC 캐시 소진 이후 SSD 지속 쓰기와 더티 상태를 확인합니다.';en='Measures SSD sustained write and dirty-state behavior after SLC cache.'}
         RecIntegrity=@{ko='선택한 빈 공간 전체에 파일을 쓰고 읽어 용량과 무결성을 확인합니다.';en='Writes and reads selected free space to verify capacity and integrity.'}
         RecUsbCapacity=@{ko='USB 대용량 저장장치의 표시 용량을 빠르게 스폿체크합니다.';en='Quickly spot-checks declared capacity of USB mass storage.'}
+        RecPartitionMacrorit=@{ko='무료 포터블 파티션 도구로 생성·삭제·포맷·리사이즈를 수동으로 수행합니다. 작업 대상과 백업을 먼저 확인하십시오.';en='Free portable partition tool for manual create, delete, format and resize work. Verify the target disk and backups first.'}
+        RecPartitionDiskGenius=@{ko='MBR/GPT 복구와 배드섹터 정밀 검사 같은 고급 파티션 작업용 조건부 도구입니다. 잘못된 대상 선택은 데이터를 잃게 합니다.';en='Conditional advanced partition tool for MBR/GPT repair and bad-sector scans. Selecting the wrong disk loses data.'}
         RecDdu=@{ko='GPU 업체 변경이나 정상 제거 실패 때만 사용하는 조건부 드라이버 정리 도구입니다.';en='Conditional driver cleanup for GPU vendor changes or failed normal uninstall.'}
         RecAmdCleanup=@{ko='AMD 그래픽 드라이버 정상 제거 실패 때만 사용하는 조건부 도구입니다.';en='Conditional tool for failed normal removal of AMD graphics drivers.'}
         RecIntelXtu=@{ko='지원되는 언락 Intel CPU의 설치형 튜닝 도구이며 기준선 안정화 후에만 검토합니다.';en='Installed tuning utility for supported unlocked Intel CPUs; review only after a stable baseline.'}
         RecRyzenMaster=@{ko='지원되는 AMD Ryzen CPU의 설치형 튜닝 도구이며 기준선 안정화 후에만 검토합니다.';en='Installed tuning utility for supported AMD Ryzen CPUs; review only after a stable baseline.'}
         RecCrash=@{ko='미니덤프가 있을 때 빠르게 확인하고 디버거로 최종 검증합니다.';en='Quickly triages minidumps before debugger confirmation.'}
         RecCatalogOnly=@{ko='전체 도구 목록에서 수동으로 선택할 수 있습니다. 현재 시스템의 우선 권장 항목은 아닙니다.';en='Available for manual selection in the full catalogue; it is not a priority recommendation for this system.'}
-        RecBaselineBlocked=@{ko='최근 WHEA 또는 예기치 않은 전원 종료 기록이 있어 고부하·쓰기·튜닝 검사를 보류합니다. 기본 설정에서 원인을 먼저 확인하십시오.';en='Recent WHEA or unexpected-power evidence defers load, write, and tuning tests. Diagnose the machine at stock settings first.'}
+        RecBaselineBlocked=@{ko='최근 WHEA 또는 예기치 않은 전원 종료 기록이 있습니다. 고부하·쓰기·튜닝 검사는 기본 설정에서 원인을 먼저 확인한 뒤 진행하십시오.';en='Recent WHEA or unexpected-power evidence was found. Confirm the cause at stock settings before load, write, or tuning tests.'}
         GuiBrand=@{ko='원팩 포터블 코리아';en='ONEPACK PORTABLE KOREA'}
         GuiDescription=@{ko='Windows 11 현장 진단, 시스템 정보, SSD 더티 테스트, CPU·GPU·RAM 안정성 도구를 하나의 휴대용 GitHub 프로젝트로 관리합니다.';en='A portable GitHub project for Windows 11 field diagnostics, system inventory, SSD dirty tests, and CPU, GPU and RAM stability tools.'}
         GuiBadge=@{ko='PORTABLE DIAGNOSTIC CONSOLE';en='PORTABLE DIAGNOSTIC CONSOLE'}
@@ -341,6 +343,7 @@ function Get-WplText {
         StateRecommendedNow=@{ko='지금 권장';en='Recommended now'}
         StateGuidedTest=@{ko='가이드 테스트';en='Guided test'}
         StateConditionalHighWrite=@{ko='조건부 · 고위험 쓰기';en='Conditional · high-write'}
+        StateConditionalPartitionWrite=@{ko='조건부 · 파티션 쓰기';en='Conditional · partition write'}
         StateConditionalUsbOnly=@{ko='조건부 · USB 전용';en='Conditional · USB-only'}
         StateConditionalDriverRecovery=@{ko='조건부 · 드라이버 복구';en='Conditional · driver recovery'}
         StateConditionalIfDumpExists=@{ko='조건부 · 덤프 있을 때';en='Conditional · if dump exists'}

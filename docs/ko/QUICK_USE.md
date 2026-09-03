@@ -30,6 +30,8 @@
 | 나래온 더티 테스트 (`naraeon-dirty-test`) | SLC 캐시 소진 후 지속 쓰기 | 대용량 복사 중 속도 급락 확인 | 캐시 이후 속도가 급격히 무너지지 않음 |
 | H2testw (`h2testw`) | 빈 공간 전체 쓰기·읽기 무결성 | 용량 허위 표기, 데이터 손상 의심 | 오류 0바이트 |
 | ValiDrive (`validrive`) | USB 표시 용량 스폿체크 | USB 진위 빠른 확인 | 전 구간 정상 응답 |
+| Macrorit Partition Expert (`macrorit-partition-expert`) | 파티션 생성·삭제·포맷·리사이즈 | 파티션 구조를 바꿔야 할 때 | 작업 대상 디스크와 용량이 계획과 일치 |
+| DiskGenius (`diskgenius`) | MBR/GPT 복구, 배드섹터 정밀 검사, 클론 | 고급 복구·검사가 필요할 때 | 검사 결과에서 새로운 결함이 늘지 않음 |
 
 ## CPU와 메모리 안정성
 
@@ -137,3 +139,5 @@ AMD·Intel 그래픽과 메인보드 BIOS는 공개 조회 경로가 없어 날�
 | Ventoy | [VENTOY.md](tools/VENTOY.md) |
 | SDIO | [SDIO.md](tools/SDIO.md) |
 | Glary Utilities | [GLARY_UTILITIES.md](tools/GLARY_UTILITIES.md) |
+| Macrorit Partition Expert | [MACRORIT_PARTITION_EXPERT.md](tools/MACRORIT_PARTITION_EXPERT.md) |
+| DiskGenius | [DISKGENIUS.md](tools/DISKGENIUS.md) |

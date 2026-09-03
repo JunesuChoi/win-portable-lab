@@ -192,6 +192,8 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
         Add-Candidate $candidates 'naraeon-dirty-test' 'conditional-high-write' 'RecDirty'
         Add-Candidate $candidates 'h2testw' 'conditional-high-write' 'RecIntegrity'
         Add-Candidate $candidates 'validrive' 'conditional-usb-only' 'RecUsbCapacity'
+        Add-Candidate $candidates 'macrorit-partition-expert' 'conditional-partition-write' 'RecPartitionMacrorit'
+        Add-Candidate $candidates 'diskgenius' 'conditional-partition-write' 'RecPartitionDiskGenius'
     }
     if ($SelectedProfile -in @('gpu','all')) {
         Add-Candidate $candidates 'ddu' 'conditional-driver-recovery' 'RecDdu'
@@ -244,18 +246,21 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
         # 'available-in-profile' rows exist only so the tool stays visible. They must
         # not be launchable, or the profile gate around risky tools means nothing.
         $discoveryOnly = $candidates[$candidateId].state -eq 'available-in-profile'
-        # A recent WHEA or Kernel-Power event makes stress/overclock paths
-        # diagnostic-only. Keep them visible, but never present them as a next
-        # launchable step until the baseline is clean.
-        $baselineBlocked = Test-WplBaselineBlockedRisk -RecommendationMode ([string]$settings.detected.healthSignals.recommendationMode) -Risk ([string]$launcher.risk)
-        $launchableState = [bool]$exe -and -not $discoveryOnly -and -not $baselineBlocked
-        $state = if ($baselineBlocked) { 'diagnostic-baseline-only' } else { $candidates[$candidateId].state }
-        $reasonKey = if ($baselineBlocked) { 'RecBaselineBlocked' } else { $candidates[$candidateId].reasonKey }
+        # A recent WHEA or Kernel-Power event is a caution signal, not a launch
+        # veto. Risky rows stay launchable (their own acknowledgement flow still
+        # applies) and the baseline warning is appended to the row reason.
+        $baselineWarning = Test-WplBaselineBlockedRisk -RecommendationMode ([string]$settings.detected.healthSignals.recommendationMode) -Risk ([string]$launcher.risk)
+        $launchableState = [bool]$exe -and -not $discoveryOnly
+        $state = $candidates[$candidateId].state
+        $reasonKey = $candidates[$candidateId].reasonKey
         $programs += [ordered]@{
             id = $launcher.id
             catalogId = $launcher.catalogId
             state = $state
-            reason = [ordered]@{ko=(Get-WplText -Key $reasonKey -Language 'ko');en=(Get-WplText -Key $reasonKey -Language 'en')}
+            reason = [ordered]@{
+                ko = if ($baselineWarning) { "$(Get-WplText -Key $reasonKey -Language 'ko') $(Get-WplText -Key RecBaselineBlocked -Language 'ko')" } else { Get-WplText -Key $reasonKey -Language 'ko' }
+                en = if ($baselineWarning) { "$(Get-WplText -Key $reasonKey -Language 'en') $(Get-WplText -Key RecBaselineBlocked -Language 'en')" } else { Get-WplText -Key $reasonKey -Language 'en' }
+            }
             risk = $launcher.risk
             launchMode = $launcher.launchMode
             installed = $installed
@@ -382,6 +387,8 @@ function Get-WplToolGuideName([string]$CatalogId) {
         'sdio' { 'SDIO' }
         'sd-card-formatter' { 'SD_CARD_FORMATTER' }
         'glary-utilities' { 'GLARY_UTILITIES' }
+        'macrorit-partition-expert' { 'MACRORIT_PARTITION_EXPERT' }
+        'diskgenius' { 'DISKGENIUS' }
         default { $null }
     }
 }
@@ -737,6 +744,7 @@ function Show-WplGui {
             'recommended-now' { 'StateRecommendedNow' }
             'guided-test' { 'StateGuidedTest' }
             'conditional-high-write' { 'StateConditionalHighWrite' }
+            'conditional-partition-write' { 'StateConditionalPartitionWrite' }
             'conditional-usb-only' { 'StateConditionalUsbOnly' }
             'conditional-driver-recovery' { 'StateConditionalDriverRecovery' }
             'conditional-if-dump-exists' { 'StateConditionalIfDumpExists' }
