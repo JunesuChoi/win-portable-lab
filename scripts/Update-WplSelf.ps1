@@ -22,7 +22,13 @@ $statePath = Join-Path $logs 'installed-revision.json'
 function Get-WplInstalledRevision {
     $revision = $null
     if (Test-Path -LiteralPath $statePath) {
-        try { $revision = [string]((Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json).commit) } catch { }
+        try {
+            $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+            $revision = [string]$state.commit
+            # State written by the first self-updater build used availableCommit.
+            # Keep that successful update recognised when upgrading this script.
+            if (-not $revision) { $revision = [string]$state.availableCommit }
+        } catch { }
     }
     $git = Get-Command git -ErrorAction SilentlyContinue
     if (-not $revision -and $git -and (Test-Path -LiteralPath (Join-Path $resolvedRoot '.git'))) {
@@ -54,6 +60,7 @@ $result = [ordered]@{
     schemaVersion = 1
     repository = $canonicalRepository
     branch = $Branch
+    commit = $remote.Commit
     installedCommit = $installed
     availableCommit = $remote.Commit
     status = if ($installed -eq $remote.Commit) { 'current' } else { 'update-available' }
