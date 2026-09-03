@@ -722,11 +722,23 @@ Describe 'Network driver recovery contract' {
         # The per-folder purpose documents are real bilingual content, not
         # placeholders, so they must survive the cleanup.
         $toolDocs = @($tracked | Where-Object { $_ -match '^tools/\d{2}-[^/]+/README\.md$' })
-        Assert-WplTest ($toolDocs.Count -eq 9) "Expected 9 tools folder guides; found $($toolDocs.Count)."
+        Assert-WplTest ($toolDocs.Count -eq 10) "Expected 10 tools folder guides; found $($toolDocs.Count)."
     }
 }
 
 Describe 'Elevated launch integrity contract' {
+    It 'keeps self-update scoped to the canonical repository and non-user files' {
+        $updater = Get-Content -LiteralPath (Join-Path $root 'scripts\Update-WplSelf.ps1') -Raw
+        Assert-WplTest ($updater -match "canonicalRepository = 'JunesuChoi/win-portable-lab'") 'Self-update does not pin the canonical repository.'
+        Assert-WplTest ($updater -match 'codeload\.github\.com') 'Self-update does not download the checked GitHub commit archive.'
+        Assert-WplTest ($updater -notmatch "'tools'") 'Self-update must never replace portable tool binaries.'
+        Assert-WplTest ($updater -notmatch "'downloads'") 'Self-update must never replace downloaded archives.'
+        Assert-WplTest ($updater -match 'self-update-backup-') 'Self-update does not create a recoverable backup.'
+        $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($gui -match 'x:Name="UpdateButton"') 'The GUI has no project update control.'
+        Assert-WplTest ($gui -match 'WaitForProcessId') 'The updater does not wait for the GUI to close before applying files.'
+    }
+
     It 'requires acknowledgement before a user-declared path backs a launcher' {
         # config/user-tool-paths.json is per-machine, unsigned, and lives on the
         # removable medium. Without this gate a read-only tool repointed by that

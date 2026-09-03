@@ -91,6 +91,18 @@ wpl
 
 `wpl` accepts the same arguments as `WinPortableLab.ps1` (`wpl -Action list`, `wpl -Action check -Profile quick`, and so on).
 
+### 프로젝트 업데이트 · Update the project
+
+GUI의 **프로젝트 업데이트 / Update project** 버튼은 공식 GitHub `main` 커밋을 확인합니다. 새 버전은 확인창을 거쳐 적용하며, 앱이 닫힌 뒤 자동으로 다시 시작합니다. 코드·문서·카탈로그만 `logs\self-update-backup-<timestamp>`에 백업 후 바뀝니다. 도구 바이너리, 다운로드, 보고서, 세션, `config\user-tool-paths.json`은 그대로 보존합니다.
+
+The **Update project / 프로젝트 업데이트** button checks the official GitHub `main` commit. After confirmation, it applies the update once the app closes and restarts automatically. Only code, documentation, and catalog files change after a backup in `logs\self-update-backup-<timestamp>`; tools, downloads, reports, sessions, and `config\user-tool-paths.json` remain untouched.
+
+For a command-line check:
+
+```powershell
+.\scripts\Update-WplSelf.ps1 -Root . -Action check
+```
+
 레지스트리에 올리기 전이라면 깃허브에서 바로 설치할 수도 있습니다.
 
 Before the registry release, you can also install straight from GitHub.
@@ -151,9 +163,9 @@ Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly 
 .\scripts\Test-Regression.ps1 -Root .
 ```
 
-테스트 59개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 고부하 도구가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
+테스트 60개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 고부하 도구가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
 
-59 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that a high-load tool refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
+60 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that a high-load tool refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
 
 ---
 

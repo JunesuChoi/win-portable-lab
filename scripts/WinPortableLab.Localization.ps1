@@ -146,6 +146,13 @@ function Get-WplText {
         GuiFilterRisk=@{ko='주의 필요';en='Risk requires review'}
         GuiGithub=@{ko='GitHub 프로젝트';en='GitHub project'}
         GuiValidate=@{ko='도구 무결성 검증';en='Validate tool integrity'}
+        GuiSelfUpdate=@{ko='프로젝트 업데이트';en='Update project'}
+        GuiSelfUpdateChecking=@{ko='GitHub에서 프로젝트 업데이트를 확인하는 중입니다...';en='Checking GitHub for a project update...'}
+        GuiSelfUpdateCurrent=@{ko='현재 최신 버전입니다 ({0}).';en='You are up to date ({0}).'}
+        GuiSelfUpdateConfirm=@{ko="프로젝트 업데이트를 적용할까요?`n`n현재: {0}`n새 커밋: {1}`n내용: {2}`n`n코드·문서·카탈로그만 백업 후 갱신합니다. 도구, 다운로드, 보고서, 세션, 사용자 지정 실행 경로는 변경하지 않습니다. 적용 후 자동으로 다시 시작합니다.";en="Apply the project update?`n`nCurrent: {0}`nNew commit: {1}`nMessage: {2}`n`nOnly code, documentation, and catalog files are backed up and updated. Tools, downloads, reports, sessions, and user-declared executable paths are not changed. The app restarts when complete."}
+        GuiSelfUpdateCancelled=@{ko='프로젝트 업데이트를 취소했습니다.';en='Project update cancelled.'}
+        GuiSelfUpdateClosing=@{ko='업데이트를 적용한 뒤 자동으로 다시 시작합니다...';en='Applying the update, then restarting automatically...'}
+        GuiSelfUpdateFailed=@{ko='프로젝트 업데이트 확인에 실패했습니다: {0}';en='Project update check failed: {0}'}
         GuiLaunchSelected=@{ko='선택 프로그램 실행';en='Launch selected tool'}
         GuiPrepareSelected=@{ko='도구 준비';en='Prepare tool'}
         GuiOpenRequiredGuide=@{ko='필요 조건 확인';en='Review requirements'}
