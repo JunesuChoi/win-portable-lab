@@ -309,6 +309,13 @@ Describe 'GUI snapshot and launcher behavior contract' {
         Assert-WplTest ($source -match 'GuiDetailSessionPolicy') 'The session policy is no longer surfaced in the detail pane.'
     }
 
+    It 'hides the redundant requirements action while keeping the tool guide path' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest (-not $source.Contains('GuiOpenRequiredGuide')) 'The GUI still references the retired requirements label.'
+        Assert-WplTest ($source -match '\$ui\.LaunchButton\.Visibility\s*=\s*''(Visible|Collapsed)''') 'The GUI does not control primary action button visibility.'
+        Assert-WplTest ($source -match 'Open-GuiToolGuide') 'The tool guide path disappeared with the requirements action.'
+    }
+
     It 'reports the baseline gate once instead of on every affected row' {
         $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
         Assert-WplTest ($source.Contains('$baselineWarning')) 'The tested baseline gate result is no longer consumed.'

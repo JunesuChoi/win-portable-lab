@@ -165,7 +165,6 @@ function Get-WplText {
         GuiSelfUpdateFailed=@{ko='프로젝트 업데이트 확인에 실패했습니다: {0}';en='Project update check failed: {0}'}
         GuiLaunchSelected=@{ko='선택 프로그램 실행';en='Launch selected tool'}
         GuiPrepareSelected=@{ko='도구 준비';en='Prepare tool'}
-        GuiOpenRequiredGuide=@{ko='필요 조건 확인';en='Review requirements'}
         GuiChooseExecutable=@{ko='{0} 실행 파일 선택';en='Choose the {0} executable'}
         GuiPathRegistered=@{ko='{0} 사용자 경로를 등록하고 목록을 갱신했습니다.';en='Registered the user path for {0} and refreshed the list.'}
         GuiImportChoice=@{ko='{0}을(를) 원팩 tools 폴더로 복사할까요?`n`n예: 실행 파일이 있는 폴더 전체를 원팩에 복사하고 해시·서명·원본 경로를 기록합니다.`n아니요: 원본 위치를 그대로 연결합니다.`n취소: 변경하지 않습니다.`n`n복사하려는 프로그램의 사용·재배포 권한은 사용자가 확인해야 합니다.';en='Copy {0} into the OnePack tools folder?`n`nYes: copies the executable parent folder into OnePack and records hash, signature and original path.`nNo: keeps a direct link to the original location.`nCancel: makes no change.`n`nYou must confirm permission to use and redistribute the program.'}

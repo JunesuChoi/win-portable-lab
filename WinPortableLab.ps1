@@ -912,6 +912,7 @@ function Show-WplGui {
         if (-not $selected) {
             $ui.SelectedToolText.Text = Get-WplText -Key GuiNoToolSelected -Language $script:GuiLanguage
             $ui.ReasonText.Text = Get-WplText -Key GuiSelectTool -Language $script:GuiLanguage
+            $ui.LaunchButton.Visibility = 'Visible'
             $ui.LaunchButton.IsEnabled = $false
             return
         }
@@ -938,7 +939,15 @@ function Show-WplGui {
         $ui.ReasonText.Text = ($detailLines -join "`n")
         $primaryAction = if ($selected.launchable) { 'launch' } elseif (-not $selected.installed) { 'prepare' } else { 'guide' }
         $selected | Add-Member -NotePropertyName primaryAction -NotePropertyValue $primaryAction -Force
-        $ui.LaunchButton.Content = Get-WplText -Key $(switch($primaryAction){'launch'{'GuiLaunchSelected'}'prepare'{'GuiPrepareSelected'}default{'GuiOpenRequiredGuide'}}) -Language $code
+        # The tool guide button already covers non-launchable installed tools, so
+        # keep the primary action button for launch and preparation actions.
+        if ($primaryAction -in @('launch','prepare')) {
+            $ui.LaunchButton.Visibility = 'Visible'
+            $ui.LaunchButton.Content = Get-WplText -Key $(switch($primaryAction){'launch'{'GuiLaunchSelected'}'prepare'{'GuiPrepareSelected'}}) -Language $code
+        }
+        else {
+            $ui.LaunchButton.Visibility = 'Collapsed'
+        }
         $ui.LaunchButton.IsEnabled = -not $busy
         $ui.DetailScroll.ScrollToTop()
         $ui.ProgramGrid.ScrollIntoView($selected)
