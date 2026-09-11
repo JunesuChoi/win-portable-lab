@@ -876,6 +876,24 @@ Describe 'Native memory cleanup contract' {
         Assert-WplTest (@($areas | Where-Object Id -eq 'SystemFileCache').RecordOnly -eq $true) 'System file cache must be excluded from the default plan.'
     }
 
+    It 'computes used memory above 2 GB without an Int32 overflow' {
+        $modulePath = Join-Path $root 'src\WinPortableLab.Memory.psm1'
+        Import-Module $modulePath -Force
+        $module = Get-Module WinPortableLab.Memory
+        Assert-WplTest ($null -ne $module) 'The native memory module is not loaded.'
+        # 68596891648 - 34466369512 exceeds Int32. An Int32 Math.Max literal made the
+        # snapshot throw "Cannot convert argument val2 to type System.Int32" on any
+        # machine with more than 2 GB of RAM, which emptied every GUI field.
+        $used = & $module { param($t,$a) Get-WplMemoryUsedBytes $t $a } ([int64]68596891648) ([int64]34466369512)
+        Assert-WplTest ($used -eq [int64]34130522136) "Used-memory arithmetic is wrong: $used"
+        $clamped = & $module { param($t,$a) Get-WplMemoryUsedBytes $t $a } ([int64]100) ([int64]500)
+        Assert-WplTest ($clamped -eq [int64]0) 'A negative delta was not clamped to zero.'
+        $missing = & $module { param($t,$a) Get-WplMemoryUsedBytes $t $a } $null ([int64]500)
+        Assert-WplTest ($null -eq $missing) 'A missing total should yield null, not a number.'
+        $source = Get-Content -LiteralPath $modulePath -Raw
+        Assert-WplTest ($source -notmatch '\[math\]::Max\(') 'Int32-sensitive Math.Max returned to the memory snapshot.'
+    }
+
     It 'declares the required native APIs, commands and privilege' {
         $source = Get-Content -LiteralPath (Join-Path $root 'src\WinPortableLab.Memory.psm1') -Raw
         foreach ($token in @('ntdll.dll','psapi.dll','NtSetSystemInformation','EmptyWorkingSet','GetSystemFileCacheSize','SetSystemFileCacheSize','OpenProcessToken','LookupPrivilegeValue','AdjustTokenPrivileges','SeProfileSingleProcessPrivilege','SeIncreaseQuotaPrivilege')) {

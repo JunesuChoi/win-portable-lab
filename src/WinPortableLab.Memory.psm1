@@ -162,6 +162,16 @@ function ConvertTo-WplMemoryInt64([object]$Value) {
     catch { return $null }
 }
 
+function Get-WplMemoryUsedBytes([object]$TotalBytes,[object]$AvailableBytes) {
+    # Both operands are cast to Int64 before comparing: an Int32 literal made
+    # PowerShell bind Math.Max(Int32,Int32), which threw as soon as total memory
+    # exceeded 2 GB. Keep the arithmetic pure so it is testable without CIM.
+    if ($null -eq $TotalBytes -or $null -eq $AvailableBytes) { return $null }
+    try { $delta = [int64]$TotalBytes - [int64]$AvailableBytes } catch { return $null }
+    if ($delta -lt 0) { return [int64]0 }
+    return $delta
+}
+
 function Get-WplMemorySnapshot {
     [CmdletBinding()]
     param()
@@ -173,7 +183,7 @@ function Get-WplMemorySnapshot {
     $total = ConvertTo-WplMemoryBytes (Get-WplMemoryProperty $os 'TotalVisibleMemorySize')
     $available = ConvertTo-WplMemoryBytes (Get-WplMemoryProperty $os 'FreePhysicalMemory')
     if ($null -eq $available) { $available = ConvertTo-WplMemoryInt64 (Get-WplMemoryProperty $perf 'AvailableBytes') }
-    $used = if ($null -ne $total -and $null -ne $available) { [int64]([math]::Max(0,$total - $available)) } else { $null }
+    $used = Get-WplMemoryUsedBytes $total $available
     $usedPercent = if ($null -ne $used -and $total -gt 0) { [math]::Round(($used / [double]$total) * 100,2) } else { $null }
     $systemCache = Get-WplMemoryProperty $perf 'SystemCacheResidentBytes'
     if ($null -eq $systemCache) { $systemCache = Get-WplMemoryProperty $perf 'CacheBytes' }
