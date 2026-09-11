@@ -1,10 +1,13 @@
 ﻿[CmdletBinding()]
 param(
-    [ValidateSet('gui','check','list','launch','launch-recommended','menu','validate')]
+    [ValidateSet('gui','check','list','launch','launch-recommended','menu','validate','memory')]
     [string]$Action = 'gui',
     [ValidateSet('quick','standard','deep','storage','gpu','memory','all')]
     [string]$Profile = 'quick',
     [string[]]$ToolId,
+    [string[]]$Area,
+    [int[]]$ProcessId,
+    [switch]$Report,
     [switch]$AcknowledgeRisk,
     [switch]$AcknowledgeManualTemperatureMonitoring,
     [switch]$InstallMissing,
@@ -12,7 +15,8 @@ param(
     [string]$Language = 'auto',
     [switch]$NoElevation,
     [switch]$FastRecommendation,
-    [string]$ElevationPayload
+    [string]$ElevationPayload,
+    [switch]$Json
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,6 +30,10 @@ if ($ElevationPayload) {
         $Action = [string]$payload.Action
         $Profile = [string]$payload.Profile
         $ToolId = @($payload.ToolId)
+        $Area = @($payload.Area)
+        $ProcessId = @($payload.ProcessId)
+        $Report = [bool]$payload.Report
+        $Json = [bool]$payload.Json
         $AcknowledgeRisk = [bool]$payload.AcknowledgeRisk
         $AcknowledgeManualTemperatureMonitoring = [bool]$payload.AcknowledgeManualTemperatureMonitoring
         $InstallMissing = [bool]$payload.InstallMissing
@@ -43,9 +51,9 @@ function Test-WplCurrentAdministrator {
 }
 
 $Language = Resolve-WplLanguage -Root $Root -Requested $Language
-if (-not $NoElevation -and -not (Test-WplCurrentAdministrator)) {
+if (-not $NoElevation -and -not ($Action -eq 'memory' -and $Report) -and -not (Test-WplCurrentAdministrator)) {
     $payload = [ordered]@{
-        Action=$Action;Profile=$Profile;ToolId=@($ToolId);AcknowledgeRisk=[bool]$AcknowledgeRisk
+        Action=$Action;Profile=$Profile;ToolId=@($ToolId);Area=@($Area);ProcessId=@($ProcessId);Report=[bool]$Report;Json=[bool]$Json;AcknowledgeRisk=[bool]$AcknowledgeRisk
         AcknowledgeManualTemperatureMonitoring=[bool]$AcknowledgeManualTemperatureMonitoring
         InstallMissing=[bool]$InstallMissing;FastRecommendation=[bool]$FastRecommendation;Language=$Language
     }
@@ -81,6 +89,7 @@ $script:WplUserToolPaths = $null
 Import-Module (Join-Path $Root 'src\WinPortableLab.Core.psm1') -Force
 # Process helpers own argument encoding, so the GUI never hand-builds a command line.
 Import-Module (Join-Path $Root 'src\WinPortableLab.Process.psm1') -Force
+Import-Module (Join-Path $Root 'src\WinPortableLab.Memory.psm1') -Force
 [void](Initialize-WplRuntimeDirectory -Root $Root)
 
 # Override reading and executable resolution live in WinPortableLab.Core.psm1.
@@ -673,6 +682,7 @@ function Show-WplGui {
           <Separator Background="{DynamicResource Hairline}" Margin="0,9,0,11" Height="1"/>
           <TextBlock x:Name="ToolsSectionText" Foreground="{DynamicResource InkTertiary}" FontWeight="Medium" FontSize="10" Margin="2,0,0,7"/>
           <Button x:Name="NetworkDriverButton" Style="{StaticResource NavButton}"/>
+          <Button x:Name="MemoryCleanButton" Style="{StaticResource NavButton}"/>
           <Button x:Name="GithubButton" Style="{StaticResource NavButton}"/>
           <Button x:Name="ValidateButton" Style="{StaticResource NavButton}"/>
         </StackPanel>
@@ -767,7 +777,7 @@ function Show-WplGui {
 
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)
-    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','StandardButton','DeepButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','BatchDownloadButton','SafeLaunchButton','ReportsButton','LatestResultButton','ToolsSectionText','NetworkDriverButton','UpdateButton','CleanupButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterRecommendedButton','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','BaselineNoticeBanner','BaselineNoticeText','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
+    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','StandardButton','DeepButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','BatchDownloadButton','SafeLaunchButton','ReportsButton','LatestResultButton','ToolsSectionText','NetworkDriverButton','MemoryCleanButton','UpdateButton','CleanupButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterRecommendedButton','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','BaselineNoticeBanner','BaselineNoticeText','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
     $ui = @{}
     foreach ($name in $names) { $ui[$name] = $window.FindName($name) }
 
@@ -1696,6 +1706,228 @@ function Show-WplGui {
         [void]$packWindow.ShowDialog()
     }
 
+    # The memory cleaner is a console capability rather than a catalog launcher.
+    # Its window owns its XAML and controls so adding it cannot perturb the main
+    # dashboard's FindName contract or the recommendation analysis path.
+    function Show-GuiMemoryClean {
+        [xml]$memoryXaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="760" Height="700" MinWidth="620" MinHeight="560"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Canvas}" Foreground="{DynamicResource Ink}"
+        FontFamily="Segoe UI" SizeToContent="Manual">
+  <Grid Margin="18">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <TextBlock x:Name="MemoryWindowTitle" Grid.Row="0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
+    <TextBlock x:Name="MemoryWindowIntro" Grid.Row="1" FontSize="11" LineHeight="17" TextWrapping="Wrap" Margin="0,8,0,0"/>
+    <Border x:Name="MemoryRiskSurface" Grid.Row="2" CornerRadius="8" Padding="12" Margin="0,12,0,0">
+      <CheckBox x:Name="MemoryAcknowledgeRisk" FontSize="11" VerticalContentAlignment="Top"/>
+    </Border>
+    <Grid x:Name="MemorySummaryGrid" Grid.Row="3" Margin="0,12,0,0">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <TextBlock x:Name="MemorySummaryTotalLabel" Grid.Row="0" Grid.Column="0" Margin="0,0,8,6"/>
+      <TextBlock x:Name="MemorySummaryTotalValue" Grid.Row="0" Grid.Column="1" Margin="0,0,18,6"/>
+      <TextBlock x:Name="MemorySummaryAvailableLabel" Grid.Row="0" Grid.Column="2" Margin="0,0,8,6"/>
+      <TextBlock x:Name="MemorySummaryAvailableValue" Grid.Row="0" Grid.Column="3" Margin="0,0,0,6"/>
+      <TextBlock x:Name="MemorySummaryUsedLabel" Grid.Row="1" Grid.Column="0" Margin="0,0,8,6"/>
+      <TextBlock x:Name="MemorySummaryUsedValue" Grid.Row="1" Grid.Column="1" Margin="0,0,18,6"/>
+      <TextBlock x:Name="MemorySummaryPercentLabel" Grid.Row="1" Grid.Column="2" Margin="0,0,8,6"/>
+      <TextBlock x:Name="MemorySummaryPercentValue" Grid.Row="1" Grid.Column="3" Margin="0,0,0,6"/>
+      <TextBlock x:Name="MemorySummaryStandbyLabel" Grid.Row="2" Grid.Column="0" Margin="0,0,8,6"/>
+      <TextBlock x:Name="MemorySummaryStandbyValue" Grid.Row="2" Grid.Column="1" Margin="0,0,18,6"/>
+      <TextBlock x:Name="MemorySummaryModifiedLabel" Grid.Row="2" Grid.Column="2" Margin="0,0,8,6"/>
+      <TextBlock x:Name="MemorySummaryModifiedValue" Grid.Row="2" Grid.Column="3" Margin="0,0,0,6"/>
+      <TextBlock x:Name="MemorySummaryCacheLabel" Grid.Row="3" Grid.Column="0" Margin="0,0,8,0"/>
+      <TextBlock x:Name="MemorySummaryCacheValue" Grid.Row="3" Grid.Column="1" Margin="0,0,18,0"/>
+      <TextBlock x:Name="MemorySummaryCapturedLabel" Grid.Row="3" Grid.Column="2" Margin="0,0,8,0"/>
+      <TextBlock x:Name="MemorySummaryCapturedValue" Grid.Row="3" Grid.Column="3" Margin="0"/>
+    </Grid>
+    <Border x:Name="MemoryAreaSurface" Grid.Row="4" CornerRadius="8" Padding="12" Margin="0,14,0,0">
+      <ScrollViewer x:Name="MemoryAreaScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+        <StackPanel x:Name="MemoryAreaList" Margin="0,0,6,0"/>
+      </ScrollViewer>
+    </Border>
+    <Border x:Name="MemoryResultSurface" Grid.Row="5" CornerRadius="8" Padding="12" Margin="0,12,0,0">
+      <ScrollViewer x:Name="MemoryResultScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+        <TextBlock x:Name="MemoryResultText" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" LineHeight="17"/>
+      </ScrollViewer>
+    </Border>
+    <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button x:Name="MemoryRunButton" Height="30" MinWidth="120" Margin="0,0,8,0"/>
+      <Button x:Name="MemoryRefreshButton" Height="30" MinWidth="90" Margin="0,0,8,0"/>
+      <Button x:Name="MemoryElevateButton" Height="30" MinWidth="150" Margin="0,0,8,0"/>
+      <Button x:Name="MemoryCloseButton" Height="30" MinWidth="90"/>
+    </StackPanel>
+  </Grid>
+</Window>
+'@
+        $memoryWindow = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $memoryXaml))
+        $memoryWindow.Owner = $window
+        $memoryWindow.Background = $window.TryFindResource('Canvas')
+        $memoryWindow.Foreground = $window.TryFindResource('Ink')
+        $memoryWindow.Title = Get-WplText -Key GuiMemoryCleanTitle -Language $script:GuiLanguage
+
+        $memoryTitle = $memoryWindow.FindName('MemoryWindowTitle')
+        $memoryTitle.Text = $memoryWindow.Title
+        $memoryTitle.Foreground = $window.TryFindResource('Ink')
+        $memoryIntro = $memoryWindow.FindName('MemoryWindowIntro')
+        $memoryIntro.Text = Get-WplText -Key GuiMemoryCleanIntro -Language $script:GuiLanguage
+        $memoryIntro.Foreground = $window.TryFindResource('InkSubtle')
+        $riskSurface = $memoryWindow.FindName('MemoryRiskSurface')
+        $riskSurface.Background = $window.TryFindResource('Surface2')
+        $riskCheck = $memoryWindow.FindName('MemoryAcknowledgeRisk')
+        $riskCheck.Content = Get-WplText -Key GuiMemoryCleanRisk -Language $script:GuiLanguage
+        $riskCheck.Foreground = $window.TryFindResource('Caution')
+        $areaSurface = $memoryWindow.FindName('MemoryAreaSurface')
+        $areaSurface.Background = $window.TryFindResource('Surface1')
+        $resultSurface = $memoryWindow.FindName('MemoryResultSurface')
+        $resultSurface.Background = $window.TryFindResource('Surface1')
+        $resultText = $memoryWindow.FindName('MemoryResultText')
+        $resultText.Foreground = $window.TryFindResource('InkMuted')
+        $memoryAreaScroll = $memoryWindow.FindName('MemoryAreaScroll')
+        $memoryAreaScroll.Add_PreviewMouseWheel({param($sender,$eventArgs);Move-GuiScroll $sender $eventArgs.Delta;$eventArgs.Handled=$true})
+        $memoryResultScroll = $memoryWindow.FindName('MemoryResultScroll')
+        $memoryResultScroll.Add_PreviewMouseWheel({param($sender,$eventArgs);Move-GuiScroll $sender $eventArgs.Delta;$eventArgs.Handled=$true})
+
+        $labels = @{
+            MemorySummaryTotalLabel='MemorySummaryTotal'; MemorySummaryAvailableLabel='MemorySummaryAvailable'
+            MemorySummaryUsedLabel='MemorySummaryUsed'; MemorySummaryPercentLabel='MemorySummaryPercent'
+            MemorySummaryStandbyLabel='MemorySummaryStandby'; MemorySummaryModifiedLabel='MemorySummaryModified'
+            MemorySummaryCacheLabel='MemorySummaryCache'; MemorySummaryCapturedLabel='MemorySummaryCaptured'
+        }
+        foreach ($name in $labels.Keys) {
+            $label = $memoryWindow.FindName($name)
+            $label.Text = Get-WplText -Key $labels[$name] -Language $script:GuiLanguage
+            $label.Foreground = $window.TryFindResource('InkTertiary')
+        }
+        foreach ($name in @('MemorySummaryTotalValue','MemorySummaryAvailableValue','MemorySummaryUsedValue','MemorySummaryPercentValue','MemorySummaryStandbyValue','MemorySummaryModifiedValue','MemorySummaryCacheValue','MemorySummaryCapturedValue')) {
+            $memoryWindow.FindName($name).Foreground = $window.TryFindResource('InkMuted')
+        }
+
+        $areaList = $memoryWindow.FindName('MemoryAreaList')
+        $areaChecks = [Collections.Generic.List[object]]::new()
+        foreach ($area in @(Get-WplMemoryCleanupArea)) {
+            $check = New-Object Windows.Controls.CheckBox
+            $check.Tag = [string]$area.Id
+            $check.IsChecked = -not [bool]$area.RecordOnly
+            $check.Foreground = $window.TryFindResource('InkMuted')
+            $check.Margin = New-Object Windows.Thickness 0,0,0,8
+            $check.ToolTip = Get-WplText -Key ([string]$area.DescriptionKey) -Language $script:GuiLanguage
+            $content = New-Object Windows.Controls.TextBlock
+            $content.Text = Get-WplText -Key ([string]$area.DescriptionKey) -Language $script:GuiLanguage
+            $content.TextWrapping = 'Wrap'
+            $content.FontSize = 11
+            $check.Content = $content
+            $areaList.Children.Add($check) | Out-Null
+            $areaChecks.Add($check)
+        }
+
+        $formatBytes = {
+            param([object]$Value)
+            if ($null -eq $Value) { return Get-WplText -Key MemoryUnavailable -Language $script:GuiLanguage }
+            return ('{0:N2} MB' -f ([double]$Value / 1MB))
+        }
+        $refreshMemory = {
+            $snapshot = Get-WplMemorySnapshot
+            $memoryWindow.FindName('MemorySummaryTotalValue').Text = & $formatBytes $snapshot.TotalBytes
+            $memoryWindow.FindName('MemorySummaryAvailableValue').Text = & $formatBytes $snapshot.AvailableBytes
+            $memoryWindow.FindName('MemorySummaryUsedValue').Text = & $formatBytes $snapshot.UsedBytes
+            $memoryWindow.FindName('MemorySummaryPercentValue').Text = if ($null -eq $snapshot.UsedPercent) { Get-WplText -Key MemoryUnavailable -Language $script:GuiLanguage } else { '{0:N2}%' -f [double]$snapshot.UsedPercent }
+            $standbyValues = @($snapshot.StandbyNormalBytes,$snapshot.StandbyReserveBytes,$snapshot.StandbyCoreBytes) | Where-Object { $null -ne $_ }
+            $standbyMeasure = @($standbyValues | Measure-Object -Sum)
+            $standby = if ($standbyMeasure.Count -gt 0) { [int64]$standbyMeasure[0].Sum } else { $null }
+            $memoryWindow.FindName('MemorySummaryStandbyValue').Text = if ($null -eq $standby -or $standby -eq 0 -and $null -eq $snapshot.StandbyNormalBytes) { Get-WplText -Key MemoryUnavailable -Language $script:GuiLanguage } else { & $formatBytes $standby }
+            $memoryWindow.FindName('MemorySummaryModifiedValue').Text = & $formatBytes $snapshot.ModifiedBytes
+            $memoryWindow.FindName('MemorySummaryCacheValue').Text = & $formatBytes $snapshot.SystemCacheBytes
+            $memoryWindow.FindName('MemorySummaryCapturedValue').Text = if ($snapshot.CapturedAt) { ([datetime]$snapshot.CapturedAt).ToString('yyyy-MM-dd HH:mm:ss') } else { Get-WplText -Key MemoryUnavailable -Language $script:GuiLanguage }
+            $resultText.Text = Get-WplText -Key GuiMemoryCleanReady -Language $script:GuiLanguage
+            $resultText.Foreground = $window.TryFindResource('InkSubtle')
+        }
+
+        $run = $memoryWindow.FindName('MemoryRunButton')
+        $run.Content = Get-WplText -Key GuiMemoryCleanRun -Language $script:GuiLanguage
+        $run.Style = $window.TryFindResource('PrimaryButton')
+        $refresh = $memoryWindow.FindName('MemoryRefreshButton')
+        $refresh.Content = Get-WplText -Key GuiMemoryCleanRefresh -Language $script:GuiLanguage
+        $refresh.Style = $window.TryFindResource('ActionButton')
+        $elevate = $memoryWindow.FindName('MemoryElevateButton')
+        $elevate.Content = Get-WplText -Key GuiMemoryCleanElevate -Language $script:GuiLanguage
+        $elevate.Style = $window.TryFindResource('ActionButton')
+        $close = $memoryWindow.FindName('MemoryCloseButton')
+        $close.Content = Get-WplText -Key GuiDetailClose -Language $script:GuiLanguage
+        $close.Style = $window.TryFindResource('ActionButton')
+        $run.IsEnabled = [bool]$script:GuiIsAdministrator
+        $elevate.Visibility = if ($script:GuiIsAdministrator) { 'Collapsed' } else { 'Visible' }
+        if (-not $script:GuiIsAdministrator) {
+            $resultText.Text = Get-WplText -Key GuiMemoryCleanNeedsAdmin -Language $script:GuiLanguage
+            $resultText.Foreground = $window.TryFindResource('Caution')
+        }
+
+        $refresh.Add_Click({ & $refreshMemory })
+        $run.Add_Click({
+            $selectedAreas = @($areaChecks | Where-Object { $_.IsChecked -eq $true } | ForEach-Object { [string]$_.Tag })
+            if (-not $selectedAreas.Count) {
+                $resultText.Text = Get-WplText -Key GuiMemoryCleanSelectArea -Language $script:GuiLanguage
+                $resultText.Foreground = $window.TryFindResource('Caution')
+                return
+            }
+            $risky = @($selectedAreas | Where-Object { $_ -notin @('WorkingSet','SystemWorkingSet') })
+            if ($risky.Count -and $riskCheck.IsChecked -ne $true) {
+                $resultText.Text = Get-WplText -Key GuiMemoryCleanAcknowledge -Language $script:GuiLanguage
+                $resultText.Foreground = $window.TryFindResource('Caution')
+                return
+            }
+            if (-not $script:GuiIsAdministrator) {
+                $resultText.Text = Get-WplText -Key GuiMemoryCleanNeedsAdmin -Language $script:GuiLanguage
+                $resultText.Foreground = $window.TryFindResource('Caution')
+                return
+            }
+            $run.IsEnabled = $false
+            $resultText.Foreground = $window.TryFindResource('InkSubtle')
+            $resultText.Text = Get-WplText -Key GuiMemoryCleanRunning -Language $script:GuiLanguage
+            $memoryWindow.Dispatcher.Invoke([action]{},'Render')
+            try {
+                $cleanup = Clear-WplSystemMemory -Area $selectedAreas -AcknowledgeRisk:($riskCheck.IsChecked -eq $true)
+                $lines = [Collections.Generic.List[string]]::new()
+                $deltaText = if ($null -eq $cleanup.DeltaBytes) { Get-WplText -Key MemoryUnavailable -Language $script:GuiLanguage } else { & $formatBytes $cleanup.DeltaBytes }
+                $lines.Add((Get-WplText -Key GuiMemoryCleanComplete -Language $script:GuiLanguage -ArgumentList @(@($cleanup.Performed).Count,$deltaText)))
+                foreach ($entry in @($cleanup.Results)) {
+                    $state = if ($entry.Success) { Get-WplText -Key MemorySucceeded -Language $script:GuiLanguage } elseif ($entry.Skipped) { Get-WplText -Key MemorySkipped -Language $script:GuiLanguage } else { Get-WplText -Key MemoryFailed -Language $script:GuiLanguage }
+                    $lines.Add(('[{0}] {1}: {2}' -f $state,$entry.Id,$entry.Message))
+                }
+                $resultText.Text = $lines -join "`n"
+                $resultText.Foreground = if (@($cleanup.Results | Where-Object { -not $_.Success -and -not $_.Skipped }).Count) { $window.TryFindResource('Caution') } else { $window.TryFindResource('InkMuted') }
+                & $refreshMemory
+                $resultText.Text = ($lines -join "`n")
+            }
+            catch {
+                $resultText.Text = Get-WplText -Key GuiMemoryCleanFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+                $resultText.Foreground = $window.TryFindResource('Danger')
+            }
+            finally { $run.IsEnabled = [bool]$script:GuiIsAdministrator }
+        })
+        $elevate.Add_Click({
+            try {
+                $tokens = @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$PSCommandPath,'-Action','memory','-Language',$script:GuiLanguage)
+                $arguments = ConvertTo-WplWindowsCommandLine -ArgumentList $tokens
+                Start-Process -FilePath 'powershell.exe' -ArgumentList $arguments -Verb RunAs
+                $memoryWindow.Close()
+            }
+            catch {
+                $resultText.Text = Get-WplText -Key GuiMemoryCleanElevationFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+                $resultText.Foreground = $window.TryFindResource('Danger')
+            }
+        })
+        $close.Add_Click({ $memoryWindow.Close() })
+        $memoryWindow.Add_ContentRendered({ & $refreshMemory })
+        [void]$memoryWindow.ShowDialog()
+    }
+
     # Network drivers are the one class of driver whose absence blocks fetching
     # every other driver, so they get a dedicated surface rather than living
     # inside the generic recommendation list.
@@ -1889,6 +2121,7 @@ function Show-WplGui {
         $ui.ReportsButton.Content = Get-WplText -Key GuiReports -Language $code
         $ui.LatestResultButton.Content = Get-WplText -Key GuiLatestResult -Language $code
         $ui.NetworkDriverButton.Content = Get-WplText -Key GuiNetworkDriver -Language $code
+        $ui.MemoryCleanButton.Content = Get-WplText -Key GuiMemoryClean -Language $code
         $ui.UpdateButton.Content = Get-WplText -Key GuiSelfUpdate -Language $code
         $ui.CleanupButton.Content = Get-WplText -Key GuiCleanup -Language $code
         $ui.GithubButton.Content = Get-WplText -Key GuiGithub -Language $code
@@ -2459,6 +2692,13 @@ function Show-WplGui {
             $ui.StatusText.Text = Get-WplText -Key GuiNetDriverActionFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
         }
     })
+    $ui.MemoryCleanButton.Add_Click({
+        try { Show-GuiMemoryClean }
+        catch {
+            Set-GuiStatusTone 'fail'
+            $ui.StatusText.Text = Get-WplText -Key GuiMemoryCleanFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+        }
+    })
     $window.Add_Loaded({
         if ($script:GuiInitialAnalysisStarted) { return }
         $script:GuiInitialAnalysisStarted = $true
@@ -2508,6 +2748,15 @@ function Show-WplGui {
 if ($Action -eq 'gui') {
     Show-WplGui
     return
+}
+
+if ($Action -eq 'memory') {
+    $memoryScript = Join-Path $Root 'scripts\Clear-WplSystemMemory.ps1'
+    $memoryArguments = @{ Root=$Root; Language=$Language; Report=$Report; Json=$Json; AcknowledgeRisk=$AcknowledgeRisk }
+    if ($Area) { $memoryArguments.Area = $Area }
+    if ($ProcessId) { $memoryArguments.ProcessId = $ProcessId }
+    & $memoryScript @memoryArguments
+    exit $LASTEXITCODE
 }
 
 if ($Action -eq 'validate') {

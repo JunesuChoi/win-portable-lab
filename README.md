@@ -109,6 +109,10 @@ For a command-line check:
 
 Clean up storage / 저장 공간 정리 is in the left management menu. It previews candidates and size, then deletes only after explicit approval. Reports, recommendations, and sessions retain 30 days and the newest 30 runs; general logs retain 14 days; the newest two self-update backups stay. Create an empty .wpl-keep file inside a run folder to preserve it.
 
+메모리 정리 / Clean memory는 도구 카탈로그가 아니라 콘솔 내장 기능입니다. `NtSetSystemInformation`과 Windows 메모리 API로 작업 집합·시스템 작업 집합·수정 페이지·대기 목록을 일시적으로 정리하고, 선택한 경우 파일 캐시를 flush한 뒤 기존 한도와 플래그를 원복합니다. 기본 묶음에는 파일 캐시가 포함되지 않으며, 대기·수정 목록과 파일 캐시는 인라인 위험 확인 후에만 실행됩니다. 관리자 권한 없이 `-Report`로 계획과 현재 메모리 요약을 만들 수 있습니다. 레지스트리·영구 설정을 바꾸지 않고 자동·예약 실행도 하지 않습니다. 자세한 내용: [MEMORY_CLEANUP](docs/ko/MEMORY_CLEANUP.md) / [MEMORY_CLEANUP](docs/en/MEMORY_CLEANUP.md)
+
+Memory cleanup / 메모리 정리는 a console capability rather than a catalog download. It uses `NtSetSystemInformation` and the Windows memory APIs to temporarily trim working sets and purge modified or standby lists; when explicitly selected, it flushes the file cache and restores the previous limits and flags. The file cache is excluded from the default set, and standby, modified-list and file-cache operations require the inline risk acknowledgement. Use `-Report` without administrator rights to create a plan and snapshot. It changes no registry or persistent setting and has no automatic or scheduled mode. Read the [English guide](docs/en/MEMORY_CLEANUP.md) or [한국어 안내](docs/ko/MEMORY_CLEANUP.md).
+
 레지스트리에 올리기 전이라면 깃허브에서 바로 설치할 수도 있습니다.
 
 Before the registry release, you can also install straight from GitHub.
@@ -169,9 +173,9 @@ Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly 
 .\scripts\Test-Regression.ps1 -Root .
 ```
 
-테스트 67개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 되돌릴 수 없는 변경만 확인 창으로 막는지, 고부하 세션 스크립트가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
+테스트 74개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 되돌릴 수 없는 변경만 확인 창으로 막는지, 고부하 세션 스크립트가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
 
-67 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that only an irreversible change is gated behind a confirmation dialog, that the high-load session script still refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
+74 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that only an irreversible change is gated behind a confirmation dialog, that the high-load session script still refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
 
 ---
 

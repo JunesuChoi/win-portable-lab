@@ -861,3 +861,84 @@ Describe 'Elevated launch integrity contract' {
         Assert-WplTest ($pnp -eq 1) "The PnP table is rendered $pnp times in the report; it must render once."
     }
 }
+
+Describe 'Native memory cleanup contract' {
+    It 'exports the native memory module contract without running cleanup' {
+        $modulePath = Join-Path $root 'src\WinPortableLab.Memory.psm1'
+        Assert-WplTest (Test-Path -LiteralPath $modulePath -PathType Leaf) 'Native memory module is missing.'
+        Import-Module $modulePath -Force
+        $exported = @(Get-Command -Module WinPortableLab.Memory -CommandType Function | Select-Object -ExpandProperty Name)
+        foreach ($name in @('Get-WplMemorySnapshot','Get-WplMemoryCleanupArea','Test-WplMemoryCleanupSupport','Clear-WplSystemMemory')) {
+            Assert-WplTest ($name -in $exported) "Native memory function is not exported: $name"
+        }
+        $areas = @(Get-WplMemoryCleanupArea)
+        Assert-WplTest (@($areas.Id) -join ',' -eq 'WorkingSet,SystemWorkingSet,ModifiedPageList,StandbyList,LowPriorityStandbyList,SystemFileCache') 'Native cleanup area ids changed.'
+        Assert-WplTest (@($areas | Where-Object Id -eq 'SystemFileCache').RecordOnly -eq $true) 'System file cache must be excluded from the default plan.'
+    }
+
+    It 'declares the required native APIs, commands and privilege' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'src\WinPortableLab.Memory.psm1') -Raw
+        foreach ($token in @('ntdll.dll','psapi.dll','NtSetSystemInformation','EmptyWorkingSet','GetSystemFileCacheSize','SetSystemFileCacheSize','OpenProcessToken','LookupPrivilegeValue','AdjustTokenPrivileges','SeProfileSingleProcessPrivilege','SeIncreaseQuotaPrivilege')) {
+            Assert-WplTest ($source -match [regex]::Escape($token)) "Native memory source is missing: $token"
+        }
+        Assert-WplTest ($source -match 'WplMemorySystemInformationClass = 80') 'SystemMemoryListInformation class 80 is missing.'
+        foreach ($command in @('WplMemoryEmptyWorkingSets = 2','WplMemoryFlushModifiedList = 3','WplMemoryPurgeStandbyList = 4','WplMemoryPurgeLowPriorityStandbyList = 5')) {
+            Assert-WplTest ($source -match [regex]::Escape($command)) "Native memory command is missing: $command"
+        }
+        Assert-WplTest ($source -match 'Marshal\.AllocHGlobal\(4\)' -and $source -match 'Marshal\.WriteInt32') 'The memory-list command buffer is not a 4-byte integer.'
+        Assert-WplTest ($source -match 'NtSetSystemInformation\(\s*int SystemInformationClass,\s*\s*IntPtr SystemInformation,\s*\s*int SystemInformationLength') 'NtSetSystemInformation signature drifted.'
+    }
+
+    It 'does not depend on downloaded or bundled third-party binaries' {
+        $paths = @((Join-Path $root 'src\WinPortableLab.Memory.psm1'),(Join-Path $root 'scripts\Clear-WplSystemMemory.ps1'))
+        foreach ($path in $paths) {
+            $source = Get-Content -LiteralPath $path -Raw
+            Assert-WplTest ($source -notmatch '(?i)Invoke-WebRequest|Start-BitsTransfer|DownloadFile|curl\.exe|wget\.exe') "Memory cleanup references a downloader: $path"
+            Assert-WplTest ($source -notmatch '(?i)\\[^\r\n'']+\.exe') "Memory cleanup references an external executable path: $path"
+        }
+    }
+
+    It 'contains no registry or persistent memory-setting writes' {
+        $paths = @((Join-Path $root 'src\WinPortableLab.Memory.psm1'),(Join-Path $root 'scripts\Clear-WplSystemMemory.ps1'))
+        foreach ($path in $paths) {
+            $source = Get-Content -LiteralPath $path -Raw
+            foreach ($forbidden in @('Set-ItemProperty','New-ItemProperty','reg add','ClearPageFileAtShutdown','LargeSystemCache','DisablePagingExecutive')) {
+                Assert-WplTest ($source -notmatch [regex]::Escape($forbidden)) "Persistent setting write found in memory cleanup: $forbidden"
+            }
+        }
+    }
+
+    It 'keeps report mode available without elevation and gates real cleanup' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'src\WinPortableLab.Memory.psm1') -Raw
+        $reportStart = $source.IndexOf('if ($Report)')
+        $windowsGate = $source.IndexOf('if (-not (Test-WplMemoryWindows))', $reportStart)
+        $nativeEntry = $source.IndexOf('Initialize-WplMemoryNativeType', $reportStart)
+        Assert-WplTest ($reportStart -ge 0 -and $windowsGate -gt $reportStart -and $nativeEntry -gt $reportStart) 'Report mode is not separated before native calls.'
+        $reportBlock = $source.Substring($reportStart,$windowsGate - $reportStart)
+        Assert-WplTest ($reportBlock -match 'ReportOnly=\$true' -and $reportBlock -notmatch 'Invoke-WplMemoryListCommand|Invoke-WplSystemFileCacheCleanup|Invoke-WplProcessWorkingSet') 'Report mode contains an executable native cleanup call.'
+        Assert-WplTest ($source -match 'if \(-not \(Test-WplMemoryWindows\)\)') 'Real cleanup has no Windows gate.'
+        Assert-WplTest ($source -match 'if \(-not \$support\.IsElevated\)') 'Real cleanup has no administrator gate.'
+    }
+
+    It 'wires the GUI entry point with inline risk guidance' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($source -match 'x:Name="MemoryCleanButton"') 'The memory cleaner is missing from the GUI XAML.'
+        Assert-WplTest ($source -match '\$names = .*MemoryCleanButton') 'The memory cleaner is missing from the main FindName list.'
+        Assert-WplTest ($source -match 'function Show-GuiMemoryClean') 'Show-GuiMemoryClean is missing.'
+        Assert-WplTest ($source -match 'GuiMemoryCleanRisk') 'The GUI has no inline memory risk guidance.'
+        $function = [regex]::Match($source,'(?s)function Show-GuiMemoryClean.*?\n    \}\r?\n\r?\n    # Network drivers')
+        Assert-WplTest ($function.Success) 'Show-GuiMemoryClean body could not be located.'
+        Assert-WplTest ($function.Value -notmatch 'System\.Windows\.MessageBox') 'Memory cleanup GUI introduced a modal message box.'
+        Assert-WplTest ($function.Value -match 'Add_PreviewMouseWheel' -and $function.Value -match 'Move-GuiScroll') 'Memory cleanup scrolling is not connected to the shared wheel handler.'
+    }
+
+    It 'keeps inventory and check paths free of cleanup calls' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        $checkStart = $source.IndexOf('function Invoke-IntegratedCheck')
+        $checkEnd = $source.IndexOf('function Show-ProgramPlan')
+        Assert-WplTest ($checkStart -ge 0 -and $checkEnd -gt $checkStart) 'Integrated check boundaries changed.'
+        $check = $source.Substring($checkStart,$checkEnd - $checkStart)
+        Assert-WplTest ($check -notmatch 'Clear-WplSystemMemory|Show-GuiMemoryClean') 'Inventory/check path invokes memory cleanup.'
+        Assert-WplTest ($source -match "Action -eq 'memory'") 'Memory action is not dispatched.'
+    }
+}
