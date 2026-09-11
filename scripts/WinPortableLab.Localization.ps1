@@ -106,13 +106,14 @@ function Get-WplText {
         RecCrash=@{ko='미니덤프가 있을 때 빠르게 확인하고 디버거로 최종 검증합니다.';en='Quickly triages minidumps before debugger confirmation.'}
         RecCatalogOnly=@{ko='전체 도구 목록에서 수동으로 선택할 수 있습니다. 현재 시스템의 우선 권장 항목은 아닙니다.';en='Available for manual selection in the full catalogue; it is not a priority recommendation for this system.'}
         RecBaselineBlocked=@{ko='최근 WHEA 또는 예기치 않은 전원 종료 기록이 있습니다. 고부하·쓰기·튜닝 검사는 기본 설정에서 원인을 먼저 확인한 뒤 진행하십시오.';en='Recent WHEA or unexpected-power evidence was found. Confirm the cause at stock settings before load, write, or tuning tests.'}
+        RecBaselineNotice=@{ko='최근 WHEA 또는 예기치 않은 전원 종료 기록이 감지되었습니다. 아래 {0}개 도구는 기본 설정에서 원인을 먼저 확인한 뒤 진행하십시오.';en='Recent WHEA or unexpected-power evidence was detected. For the {0} tools flagged below, confirm the cause at stock settings first.'}
         GuiBrand=@{ko='원팩 포터블 코리아';en='ONEPACK PORTABLE KOREA'}
         GuiDescription=@{ko='Windows 11 현장 진단, 시스템 정보, SSD 더티 테스트, CPU·GPU·RAM 안정성 도구를 하나의 휴대용 GitHub 프로젝트로 관리합니다.';en='A portable GitHub project for Windows 11 field diagnostics, system inventory, SSD dirty tests, and CPU, GPU and RAM stability tools.'}
         GuiBadge=@{ko='PORTABLE DIAGNOSTIC CONSOLE';en='PORTABLE DIAGNOSTIC CONSOLE'}
         GuiSystem=@{ko='현재 시스템';en='CURRENT SYSTEM'}
         GuiRecordsSection=@{ko='기록';en='HISTORY'}
         GuiManageSection=@{ko='관리';en='MANAGE'}
-        GuiMore=@{ko='더보기';en='More'}
+        GuiToolsSection=@{ko='도구';en='TOOLS'}
         GuiSnapshotAt=@{ko='마지막 점검 {0} · {1} 프로필';en='Last scan {0} · {1} profile'}
         GuiSnapshotPending=@{ko='시스템 스냅샷 준비 중';en='Preparing system snapshot'}
         GuiProfileQuick=@{ko='빠른 점검';en='Quick'}
@@ -268,8 +269,7 @@ function Get-WplText {
         GuiNetPackDrvceoDesc=@{ko='중국 SysCeo가 배포하는 통합 드라이버 도구로, 만능 랜카드 버전과 무설치 판을 따로 제공합니다. 랜카드 외에 USB와 저장장치 컨트롤러까지 담아, 랜 자체가 잡히지 않는 까다로운 기종에서 마지막 수단으로 쓸 만합니다. 다만 화면이 중국어이고 드라이버 주입 방식 때문에 백신이 악성으로 오탐하는 사례가 보고됩니다. 셋 중 가장 신중하게 판단할 항목입니다.';en="SysCeo's all-in-one driver tool, distributed as a universal network-card edition plus a separate no-install build. It also carries USB and storage controller drivers, which makes it a reasonable last resort on awkward machines where the NIC is not detected at all. The interface is Chinese, and its driver-injection approach is reported to trigger antivirus false positives, so treat it as the entry needing the most judgement."}
         GuiNoToolGuide=@{ko='{0}의 상세 사용법 문서가 아직 없습니다. 빠른 사용 안내를 엽니다.';en='No detailed guide exists for {0} yet. Opening the quick reference instead.'}
         GuiLaunching=@{ko='{0} 실행을 준비하고 있습니다...';en='Preparing to launch {0}...'}
-        GuiLaunchPreview=@{ko='실행 전 미리보기';en='Launch preview'}
-        GuiLaunchSessionPolicy=@{ko='실행 기록을 남깁니다. 고부하·쓰기·설정 변경 도구에는 시간 및 여유 메모리 중단 조건을 적용합니다. 온도는 HWiNFO에서 직접 감시하십시오. 계속하시겠습니까?';en='The launch is recorded. High-load, write, and system-changing tools receive timeout and free-memory stop conditions. Monitor temperatures directly in HWiNFO. Continue?'}
+        GuiDetailSessionPolicy=@{ko='실행은 기록됩니다. 고부하·쓰기·설정 변경 도구에는 시간 및 여유 메모리 중단 조건이 적용됩니다. 온도는 HWiNFO 센서에서 직접 확인하십시오.';en='Launches are recorded. High-load, write, and system-changing tools receive timeout and free-memory stop conditions. Watch temperatures directly in the HWiNFO sensors.'}
         GuiLaunchStarted=@{ko='{0} 프로그램을 실행했습니다.';en='Launched {0}.'}
         GuiLaunchFailed=@{ko='프로그램 실행 실패: {0}';en='Program launch failed: {0}'}
         GuiUnexpectedError=@{ko='예상하지 못한 작업 오류가 발생했습니다. GUI는 유지됩니다: {0}';en='An unexpected action error occurred. The dashboard remains open: {0}'}
@@ -279,8 +279,7 @@ function Get-WplText {
         GuiJobBusy=@{ko='이미 시스템 분석이 진행 중입니다.';en='A system analysis is already running.'}
         GuiSelectTool=@{ko='먼저 권장 프로그램 표에서 항목을 선택하십시오.';en='Select an item from the recommendation table first.'}
         GuiNotLaunchable=@{ko='이 항목은 Windows에서 직접 실행할 수 없습니다. 부팅형 도구 안내서를 확인하십시오.';en='This item cannot be launched directly in Windows. See the bootable-tool guide.'}
-        GuiRiskConfirm=@{ko="위험 등급: {0}`n`n이 프로그램은 시스템 설정 변경, 고부하 또는 저장장치 쓰기를 수행할 수 있습니다. 관련 안내서를 확인했고 실행하시겠습니까?";en="Risk: {0}`n`nThis program may change system settings, create high load, or write to storage. Have you read the applicable guide and want to launch it?"}
-        GuiHighLoadConfirm=@{ko="위험 등급: {0}`n`n이 프로그램은 높은 발열과 전력 부하를 만들 수 있습니다. HWiNFO 센서 화면을 계속 보면서 해당 하드웨어의 제한 온도, 계산 오류, 멈춤 또는 WHEA 발생 시 즉시 중단하는 데 동의합니까?";en="Risk: {0}`n`nThis workload can generate substantial heat and power draw. Do you agree to keep HWiNFO sensors visible and stop immediately at the applicable hardware limit, any calculation error, freeze, or WHEA event?"}
+        GuiRiskConfirm=@{ko="위험 등급: {0}`n`n이 도구는 파티션, 포맷, 부팅 구성, 드라이버 저장소 또는 시스템 설정처럼 되돌리기 어려운 변경을 수행합니다. 기본 설정 상태와 복구 수단을 확인했습니까?";en="Risk: {0}`n`nThis tool makes a change that is hard to undo, such as a partition, format, boot configuration, driver store or system-settings edit. Have you confirmed the stock state and your recovery path?"}
         GuiNoPlan=@{ko='권장 프로그램 분석이 아직 완료되지 않았습니다.';en='The recommended program analysis has not completed yet.'}
         GuiValidationStarted=@{ko='별도 콘솔에서 무결성 검증을 시작했습니다.';en='Integrity validation started in a separate console.'}
         GuiGithubMissing=@{ko='GitHub 원격 저장소가 아직 연결되지 않아 로컬 README를 엽니다.';en='No GitHub remote is configured yet; opening the local README.'}

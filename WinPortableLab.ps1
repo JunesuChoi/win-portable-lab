@@ -261,8 +261,8 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
         # not be launchable, or the profile gate around risky tools means nothing.
         $discoveryOnly = $candidates[$candidateId].state -eq 'available-in-profile'
         # A recent WHEA or Kernel-Power event is a caution signal, not a launch
-        # veto. Risky rows stay launchable (their own acknowledgement flow still
-        # applies) and the baseline warning is appended to the row reason.
+        # veto. Risky rows stay launchable, and the gate is reported once for the
+        # whole plan instead of being repeated on every affected row.
         $baselineWarning = Test-WplBaselineBlockedRisk -RecommendationMode ([string]$settings.detected.healthSignals.recommendationMode) -Risk ([string]$launcher.risk)
         $launchableState = [bool]$exe -and -not $discoveryOnly
         $state = $candidates[$candidateId].state
@@ -272,10 +272,11 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
             catalogId = $launcher.catalogId
             state = $state
             reason = [ordered]@{
-                ko = if ($baselineWarning) { "$(Get-WplText -Key $reasonKey -Language 'ko') $(Get-WplText -Key RecBaselineBlocked -Language 'ko')" } else { Get-WplText -Key $reasonKey -Language 'ko' }
-                en = if ($baselineWarning) { "$(Get-WplText -Key $reasonKey -Language 'en') $(Get-WplText -Key RecBaselineBlocked -Language 'en')" } else { Get-WplText -Key $reasonKey -Language 'en' }
+                ko = Get-WplText -Key $reasonKey -Language 'ko'
+                en = Get-WplText -Key $reasonKey -Language 'en'
             }
             risk = $launcher.risk
+            baselineGated = [bool]$baselineWarning
             launchMode = $launcher.launchMode
             installed = $installed
             launchable = $launchableState
@@ -285,6 +286,7 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
         }
     }
 
+    $baselineGatedCount = @($programs | Where-Object { $_.baselineGated }).Count
     $plan = [ordered]@{
         schemaVersion = '1.0.0'
         kind = 'WinPortableLab-recommended-program-connections'
@@ -294,6 +296,8 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
         autoLaunchAllowed = $false
         detected = [ordered]@{cpu=$settings.detected.cpu;graphics=$settings.detected.graphics;storage=$settings.detected.storage;healthSignals=$settings.detected.healthSignals}
         programs = $programs
+        # One plan-level notice replaces the same sentence repeated on every row.
+        baselineNotice = if ($baselineGatedCount) { [ordered]@{ gatedCount = $baselineGatedCount; ko = (Get-WplText -Key RecBaselineNotice -Language 'ko' -ArgumentList @($baselineGatedCount)); en = (Get-WplText -Key RecBaselineNotice -Language 'en' -ArgumentList @($baselineGatedCount)) } } else { $null }
     }
     $jsonPath = Join-Path $RecommendationDirectory 'recommended-programs.json'
     $plan | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $jsonPath -Encoding utf8
@@ -666,16 +670,18 @@ function Show-WplGui {
           <Button x:Name="BatchDownloadButton" Style="{StaticResource NavButton}"/>
           <Button x:Name="UpdateButton" Style="{StaticResource NavButton}"/>
           <Button x:Name="CleanupButton" Style="{StaticResource NavButton}"/>
-          <Expander x:Name="MoreExpander" Foreground="{DynamicResource InkSubtle}" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Padding="2,4" Margin="0,4,0,0" FontSize="12">
-            <StackPanel Margin="0,7,0,0"><Button x:Name="NetworkDriverButton" Style="{StaticResource NavButton}"/><Button x:Name="GithubButton" Style="{StaticResource NavButton}"/><Button x:Name="ValidateButton" Style="{StaticResource NavButton}"/></StackPanel>
-          </Expander>
+          <Separator Background="{DynamicResource Hairline}" Margin="0,9,0,11" Height="1"/>
+          <TextBlock x:Name="ToolsSectionText" Foreground="{DynamicResource InkTertiary}" FontWeight="Medium" FontSize="10" Margin="2,0,0,7"/>
+          <Button x:Name="NetworkDriverButton" Style="{StaticResource NavButton}"/>
+          <Button x:Name="GithubButton" Style="{StaticResource NavButton}"/>
+          <Button x:Name="ValidateButton" Style="{StaticResource NavButton}"/>
         </StackPanel>
         </ScrollViewer>
       </Border>
 
       <Border Grid.Column="1" Margin="14,0,0,0" Background="{DynamicResource Surface1}" CornerRadius="8" Padding="14">
         <Grid>
-          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="34"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="34"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
           <TextBlock x:Name="RecommendationSectionText" Grid.Row="0" Foreground="{DynamicResource Ink}" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,11"/>
           <Grid Grid.Row="1" Margin="0,0,0,9">
             <TextBox x:Name="SearchBox" Background="{DynamicResource Canvas}" Foreground="{DynamicResource Ink}" BorderBrush="{DynamicResource Hairline}" BorderThickness="1" Padding="10,5" VerticalContentAlignment="Center" FontSize="12"/>
@@ -688,7 +694,10 @@ function Show-WplGui {
             <Button x:Name="FilterMissingButton" Tag="missing" Style="{StaticResource FilterChip}"/>
             <Button x:Name="FilterRiskButton" Tag="risky" Style="{StaticResource FilterChip}"/>
           </StackPanel>
-          <DataGrid x:Name="ProgramGrid" Grid.Row="3" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+          <Border x:Name="BaselineNoticeBanner" Grid.Row="3" Background="{DynamicResource Surface2}" CornerRadius="6" Padding="10,7" Margin="0,0,0,10" Visibility="Collapsed">
+            <TextBlock x:Name="BaselineNoticeText" Foreground="{DynamicResource Caution}" TextWrapping="Wrap" FontSize="11"/>
+          </Border>
+          <DataGrid x:Name="ProgramGrid" Grid.Row="4" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
                     Background="Transparent" Foreground="{DynamicResource InkMuted}" BorderThickness="0" GridLinesVisibility="Horizontal"
                     HorizontalGridLinesBrush="{DynamicResource Hairline}" RowBackground="Transparent" AlternatingRowBackground="Transparent"
                     HeadersVisibility="Column" CanUserAddRows="False" CanUserSortColumns="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
@@ -714,6 +723,7 @@ function Show-WplGui {
                 <Setter Property="Foreground" Value="{DynamicResource InkMuted}"/>
                 <Setter Property="BorderThickness" Value="2,0,0,0"/>
                 <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="ToolTip" Value="{Binding rowTooltip}"/>
                 <Style.Triggers>
                   <DataTrigger Binding="{Binding riskTier}" Value="safe"><Setter Property="BorderBrush" Value="{DynamicResource Ok}"/></DataTrigger>
                   <DataTrigger Binding="{Binding riskTier}" Value="caution"><Setter Property="BorderBrush" Value="{DynamicResource Caution}"/></DataTrigger>
@@ -757,7 +767,7 @@ function Show-WplGui {
 
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)
-    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','StandardButton','DeepButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','BatchDownloadButton','SafeLaunchButton','ReportsButton','LatestResultButton','MoreExpander','NetworkDriverButton','UpdateButton','CleanupButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterRecommendedButton','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
+    $names = @('BadgeText','BrandText','DescriptionText','LanguageButton','SnapshotText','SystemSectionText','AdminText','QuickButton','StandardButton','DeepButton','AllButton','StorageButton','MemoryButton','GpuButton','RecordsSectionText','ManageSectionText','RefreshButton','BatchDownloadButton','SafeLaunchButton','ReportsButton','LatestResultButton','ToolsSectionText','NetworkDriverButton','UpdateButton','CleanupButton','GithubButton','ValidateButton','SidebarScroll','RecommendationSectionText','SearchBox','SearchHintText','FilterRecommendedButton','FilterAllButton','FilterReadyButton','FilterMissingButton','FilterRiskButton','ProgramGrid','BaselineNoticeBanner','BaselineNoticeText','ReasonHeaderText','SelectedToolText','ReasonText','DetailScroll','StatusDot','AnalysisProgressBar','StatusText','GuideButton','ToolGuideButton','LaunchButton','OsText','CpuText','GpuText','MemoryText','OsCardButton','CpuCardButton','GpuCardButton','MemoryCardButton')
     $ui = @{}
     foreach ($name in $names) { $ui[$name] = $window.FindName($name) }
 
@@ -865,6 +875,10 @@ function Show-WplGui {
                 else { 'caution' }
             $program | Add-Member -NotePropertyName riskTier -NotePropertyValue $riskTier -Force
             $program | Add-Member -NotePropertyName modeText -NotePropertyValue (Get-GuiLaunchModeText ([string]$program.launchMode) $code) -Force
+            # The row answers where the tool lives and how it starts, so a hover
+            # does not require a trip to the detail pane.
+            $rowPath = if ($program.executable) { [string]$program.executable } else { '-' }
+            $program | Add-Member -NotePropertyName rowTooltip -NotePropertyValue ("$displayName`n$(Get-WplText -Key GuiDetailId -Language $code): $($program.id)`n$(Get-WplText -Key GuiDetailMode -Language $code): $($program.modeText)`n$(Get-WplText -Key GuiDetailPath -Language $code): $rowPath") -Force
         }
         $query = ([string]$ui.SearchBox.Text).Trim()
         $filter = $script:GuiCurrentFilter
@@ -876,6 +890,21 @@ function Show-WplGui {
         if(-not $selection){$selection=$visible|Select-Object -First 1}
         $ui.ProgramGrid.SelectedItem = $selection
         $ui.ProgramGrid.Items.Refresh()
+    }
+
+    # The plan carries one baseline notice instead of repeating the same text on
+    # every affected row, so it is rendered once above the list.
+    function Set-GuiBaselineNotice {
+        $notice = if ($script:GuiPlan) { $script:GuiPlan.baselineNotice } else { $null }
+        $gatedCount = if ($notice) { [int]$notice.gatedCount } else { 0 }
+        if ($gatedCount -gt 0) {
+            $ui.BaselineNoticeText.Text = Get-WplText -Key RecBaselineNotice -Language $script:GuiLanguage -ArgumentList @($gatedCount)
+            $ui.BaselineNoticeBanner.Visibility = 'Visible'
+        }
+        else {
+            $ui.BaselineNoticeText.Text = ''
+            $ui.BaselineNoticeBanner.Visibility = 'Collapsed'
+        }
     }
 
     function Set-GuiSelectionDetails {
@@ -891,7 +920,8 @@ function Show-WplGui {
         $path = if ($selected.executable) { [string]$selected.executable } else { '-' }
         $reason = [string]$selected.reason.$code
         $ui.SelectedToolText.Text = [string]$selected.displayName
-        $ui.ReasonText.Text = @(
+        $detailLines = [Collections.Generic.List[string]]::new()
+        $detailLines.AddRange([string[]]@(
             "$(Get-WplText -Key GuiDetailId -Language $code): $($selected.id)",
             "$(Get-WplText -Key GuiDetailState -Language $code): $($selected.stateText)",
             "$(Get-WplText -Key GuiDetailRisk -Language $code): $($selected.riskText)  |  $(Get-WplText -Key GuiDetailMode -Language $code): $($selected.modeText)",
@@ -899,7 +929,13 @@ function Show-WplGui {
             "$(Get-WplText -Key GuiDetailPath -Language $code): $path",
             '',
             $reason
-        ) -join "`n"
+        ))
+        # The gate used to ride on every row's reason text. It now appears on the
+        # affected row only, next to the single banner above the list.
+        if ($selected.baselineGated) { $detailLines.Add(''); $detailLines.Add((Get-WplText -Key RecBaselineBlocked -Language $code)) }
+        $detailLines.Add('')
+        $detailLines.Add((Get-WplText -Key GuiDetailSessionPolicy -Language $code))
+        $ui.ReasonText.Text = ($detailLines -join "`n")
         $primaryAction = if ($selected.launchable) { 'launch' } elseif (-not $selected.installed) { 'prepare' } else { 'guide' }
         $selected | Add-Member -NotePropertyName primaryAction -NotePropertyValue $primaryAction -Force
         $ui.LaunchButton.Content = Get-WplText -Key $(switch($primaryAction){'launch'{'GuiLaunchSelected'}'prepare'{'GuiPrepareSelected'}default{'GuiOpenRequiredGuide'}}) -Language $code
@@ -1829,7 +1865,7 @@ function Show-WplGui {
         $ui.SystemSectionText.Text = Get-WplText -Key GuiSystem -Language $code
         $ui.RecordsSectionText.Text = Get-WplText -Key GuiRecordsSection -Language $code
         $ui.ManageSectionText.Text = Get-WplText -Key GuiManageSection -Language $code
-        $ui.MoreExpander.Header = Get-WplText -Key GuiMore -Language $code
+        $ui.ToolsSectionText.Text = Get-WplText -Key GuiToolsSection -Language $code
         $ui.RecommendationSectionText.Text = Get-WplText -Key GuiRecommended -Language $code
         $ui.QuickButton.Content = Get-WplText -Key GuiQuick -Language $code
         $ui.StandardButton.Content = Get-WplText -Key GuiStandard -Language $code
@@ -1870,6 +1906,7 @@ function Show-WplGui {
             $ui.MemoryText.ToolTip = $script:GuiMemoryToolTip
         }
         Set-GuiSnapshotText
+        Set-GuiBaselineNotice
         Update-GuiFilterButtons
         Update-GuiProgramPresentation
         if (-not $script:GuiJob -and -not $script:GuiPlan) { $ui.StatusText.Text = Get-WplText -Key GuiReady -Language $code }
@@ -2243,29 +2280,16 @@ function Show-WplGui {
             $overrideAnswer = [System.Windows.MessageBox]::Show($overrideMessage,$window.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Warning)
             if ($overrideAnswer -ne [System.Windows.MessageBoxResult]::Yes) { return }
         }
-        $riskAccepted = $false
-        $manualTemperatureAccepted = $false
-        if ([string]$selected.risk -notmatch '^read-only') {
-            $highLoad = [string]$selected.risk -match '^(?:high-load|very-high-load)$'
-            $messageKey = if($highLoad){'GuiHighLoadConfirm'}else{'GuiRiskConfirm'}
-            $message = Get-WplText -Key $messageKey -Language $script:GuiLanguage -ArgumentList @($selected.riskText)
+        # This console is driven by operators who already know what these tools
+        # do, so a launch only stops for a change that cannot be taken back. The
+        # risk tier is already carried by the row accent, the RISK column and the
+        # detail pane, and the session policy is printed there for every row.
+        $manualTemperatureAccepted = [string]$selected.risk -match '^(?:high-load|very-high-load)$'
+        if (Test-WplRiskRequiresConfirmation -Risk ([string]$selected.risk)) {
+            $message = Get-WplText -Key GuiRiskConfirm -Language $script:GuiLanguage -ArgumentList @($selected.riskText)
             $answer = [System.Windows.MessageBox]::Show($message,$window.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Warning)
             if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
-            $riskAccepted = $true
-            $manualTemperatureAccepted = $highLoad
         }
-        $preview = @(
-            (Get-WplText -Key GuiLaunchPreview -Language $script:GuiLanguage),
-            '',
-            "$(Get-WplText -Key GuiDetailName -Language $script:GuiLanguage): $($selected.displayName)",
-            "$(Get-WplText -Key GuiDetailRisk -Language $script:GuiLanguage): $($selected.riskText)",
-            "$(Get-WplText -Key GuiDetailMode -Language $script:GuiLanguage): $($selected.modeText)",
-            "$(Get-WplText -Key GuiDetailPath -Language $script:GuiLanguage): $($selected.executable)",
-            '',
-            (Get-WplText -Key GuiLaunchSessionPolicy -Language $script:GuiLanguage)
-        ) -join [Environment]::NewLine
-        $previewAnswer = [System.Windows.MessageBox]::Show($preview,$window.Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Information)
-        if ($previewAnswer -ne [System.Windows.MessageBoxResult]::Yes) { return }
         try {
             Set-GuiStatusTone 'busy'
             $ui.StatusText.Text = Get-WplText -Key GuiLaunching -Language $script:GuiLanguage -ArgumentList @([string]$selected.id)

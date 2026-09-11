@@ -33,9 +33,9 @@ Every tool has a pinned SHA-256, a declared risk level, a recorded launch mode, 
 
 ### 1. 위험도는 경고문이 아니라 타입입니다 · Risk is a first-class type, not a README warning
 
-54개 런처가 각자 위험 등급을 선언합니다. 읽기 전용 도구만 즉시 실행되고, 데이터를 쓰거나 발열을 만들거나 드라이버를 바꾸는 도구는 **모두 명시적 승인**을 요구합니다. 파괴적 도구는 프로필 게이트 뒤에 남으며, 그 게이트는 선의가 아니라 회귀 테스트가 지킵니다.
+54개 런처가 각자 위험 등급을 선언합니다. 등급은 목록 왼쪽 색 띠, RISK 열, 상세 패널 세 곳에 항상 드러나므로 실행마다 창을 띄우지 않고, 되돌릴 수 없는 변경(파티션, 포맷, 부팅 구성, 드라이버 저장소, CPU·메모리·쿨링 설정)만 확인 창으로 막습니다. 명령줄의 -AcknowledgeRisk와 고부하 온도 감시 승인은 그대로 유지되며, 그 경계는 선의가 아니라 회귀 테스트가 지킵니다.
 
-Each of the 54 launchers declares a risk tier. Only read-only tools launch immediately; tools that write data, generate heat, or change drivers require **explicit acknowledgement**. Destructive tools stay behind a profile gate, and the gate is enforced by a regression test rather than by good intentions.
+Each of the 54 launchers declares a risk tier. The tier is always visible in three places: the row accent, the RISK column and the detail pane. A launch therefore only stops for a change that cannot be taken back: partitioning, formatting, boot configuration, the driver store, and CPU, memory or cooling settings. -AcknowledgeRisk on the command line and the high-load temperature-monitoring acknowledgement stay in place, and that boundary is enforced by a regression test rather than by good intentions.
 
 ### 2. 해시 고정이 실제로 빌드를 실패시킵니다 · Hash pinning that actually fails the build
 
@@ -45,9 +45,9 @@ Repository validation rejects any package definition without a valid 64-characte
 
 ### 3. 런처 메뉴가 아니라 추천 엔진입니다 · A recommendation engine, not a launcher menu
 
-콘솔은 인벤토리를 수집하고 최근 7일의 WHEA·Kernel-Power 이벤트와 대조한 뒤 장비별 계획을 만듭니다. 이미 하드웨어 오류가 보이는 시스템이라면 고부하·쓰기·튜닝 계열 항목에 경고 문구를 붙여 알려주되, 실행 여부는 사용자 판단에 맡깁니다.
+콘솔은 인벤토리를 수집하고 최근 7일의 WHEA·Kernel-Power 이벤트와 대조한 뒤 장비별 계획을 만듭니다. 이미 하드웨어 오류가 보이는 시스템이라면 해당되는 도구 수를 목록 위에 한 번 알리고, 그 행에는 기준선 게이트 표시를 남깁니다. 스무 개 행에 같은 문장을 되풀이하지 않으면서 실행 여부는 사용자 판단에 맡깁니다.
 
-The console collects inventory, correlates it with a 7-day WHEA and Kernel-Power window, then builds a per-machine plan. If the system already shows hardware errors, it flags high-load, write, and tuning checks with a visible warning instead of hiding or blocking them.
+The console collects inventory, correlates it with a 7-day WHEA and Kernel-Power window, then builds a per-machine plan. If the system already shows hardware errors, it names the affected tool count once above the list and marks those rows with a baseline gate, instead of repeating the same sentence on twenty rows. Nothing is hidden or blocked.
 
 ### 4. 남에게 넘길 수 있는 증거 · Evidence you can hand to someone else
 
@@ -169,9 +169,9 @@ Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly 
 .\scripts\Test-Regression.ps1 -Root .
 ```
 
-테스트 64개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 고부하 도구가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
+테스트 66개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 되돌릴 수 없는 변경만 확인 창으로 막는지, 고부하 세션 스크립트가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지입니다.
 
-64 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that a high-load tool refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
+66 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that only an irreversible change is gated behind a confirmation dialog, that the high-load session script still refuses to start without a temperature-monitoring acknowledgement, and that a worker surviving its exited bootstrap is still tracked and stopped.
 
 ---
 
@@ -189,7 +189,7 @@ The interface uses a single chromatic accent plus three muted semantic colours f
 
 | 원칙 / Principle | 내용 |
 |---|---|
-| 자동 실행 없음<br>Nothing runs automatically | 위험 도구는 GUI 확인 창과 `-AcknowledgeRisk`를 요구합니다<br>Risky tools require confirmation in the GUI and `-AcknowledgeRisk` on the command line |
+| 자동 실행 없음<br>Nothing runs automatically | 확인 창은 되돌릴 수 없는 변경에만 뜨고, 명령줄은 `-AcknowledgeRisk`를 요구합니다<br>The dialog is reserved for irreversible changes; the command line requires `-AcknowledgeRisk` |
 | 설정 변경 없음<br>No settings applied | BIOS, 전압, 배수, 메모리 프로필, 팬 곡선을 적용하지 않습니다. 권장 출력은 `applyAllowed: false`<br>No BIOS, voltage, ratio, memory profile or fan curve is ever applied |
 | 원시 쓰기 금지<br>No raw writes | 저장장치 벤치마크는 제한된 파일만 대상으로 합니다<br>Storage benchmarks target bounded files only |
 | 비밀 수집 없음<br>No secrets collected | TPM·BitLocker는 *상태*만 읽고 복구 키는 읽지 않습니다<br>Reads TPM and BitLocker *status*, never recovery keys |

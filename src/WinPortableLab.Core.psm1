@@ -68,6 +68,18 @@ function Test-WplBaselineBlockedRisk {
     return $Risk -match '^(?:high-load|very-high-load|writes-test-file|fills-free-space-high-write|writes-spot-checks-usb|installer-changes-cpu-settings|installer-changes-cpu-memory-settings|partition-modify)$'
 }
 
+# The console is operated by people who already know what these tools do, so a
+# launch is only interrupted for a change that cannot be taken back: partitioning,
+# formatting, boot-media switching and CPU, memory or cooling reconfiguration.
+# Load, write and read-only tiers proceed on their own recorded session.
+function Test-WplRiskRequiresConfirmation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Risk
+    )
+    return $Risk -match '^(?:partition-modify|formats-removable-media|system-changing|system-changing-optional|system-changing-reboot|reboot-external-boot|installer-changes-cpu-settings|installer-changes-cpu-memory-settings|changes-cooling-settings|mixed-manual)$'
+}
+
 # Row visibility for the console list. This lived inline in the GUI as a switch
 # statement, where `$_` silently referred to the switch input instead of the
 # pipeline item, so every filter except one evaluated against a bare string and
@@ -202,4 +214,4 @@ function Get-WplToolOverrideTrust {
     }
 }
 
-Export-ModuleMember -Function Read-WplJson,Read-WplJsonArray,Get-WplRuntimePaths,Get-WplPackageDefinitions,Test-WplAdministrator,Test-WplBaselineBlockedRisk,Test-WplProgramVisible,Initialize-WplRuntimeDirectory,Resolve-WplExecutable,Get-WplToolOverridePath,Read-WplToolOverrides,Get-WplToolOverride,Get-WplToolOverrideTrust
+Export-ModuleMember -Function Read-WplJson,Read-WplJsonArray,Get-WplRuntimePaths,Get-WplPackageDefinitions,Test-WplAdministrator,Test-WplBaselineBlockedRisk,Test-WplRiskRequiresConfirmation,Test-WplProgramVisible,Initialize-WplRuntimeDirectory,Resolve-WplExecutable,Get-WplToolOverridePath,Read-WplToolOverrides,Get-WplToolOverride,Get-WplToolOverrideTrust

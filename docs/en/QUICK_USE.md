@@ -69,7 +69,7 @@ Select a tool in the GUI list, or open it with the command below. The command on
 - Writes: consumes storage endurance. Back up first.
 - System changing: alters drivers or device configuration. Requires a recovery plan.
 
-Risky tools prompt for confirmation in the GUI and require `-AcknowledgeRisk` on the command line.
+The GUI reserves its confirmation dialog for changes that cannot be undone, such as partitions, formats, boot configuration, the driver store and CPU, memory or cooling settings; on the command line a risky tool always requires `-AcknowledgeRisk`.
 
 Already own a program? Point the console at it with [your own tool paths](USER_TOOL_PATHS.md).
 

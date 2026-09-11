@@ -299,6 +299,24 @@ Describe 'GUI snapshot and launcher behavior contract' {
         Assert-WplTest ([regex]::Matches($source,'\.Add_Click\(\{ Start-GuiAnalysis').Count -eq 1) 'More than one button directly reruns inventory.'
     }
 
+    It 'launches a known tool without a wall of confirmation dialogs' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest (-not $source.Contains('GuiLaunchPreview')) 'The informational launch preview modal is back.'
+        Assert-WplTest (-not $source.Contains('GuiLaunchSessionPolicy')) 'The session policy dialog is still wired into the launch path.'
+        Assert-WplTest (-not $source.Contains('GuiHighLoadConfirm')) 'A high-load launch still demands a modal acknowledgement.'
+        Assert-WplTest (-not $source.Contains('$riskAccepted')) 'The unused risk acceptance flag is back.'
+        Assert-WplTest ($source -match 'Test-WplRiskRequiresConfirmation -Risk') 'The launch path no longer separates irreversible changes from the rest.'
+        Assert-WplTest ($source -match 'GuiDetailSessionPolicy') 'The session policy is no longer surfaced in the detail pane.'
+    }
+
+    It 'reports the baseline gate once instead of on every affected row' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        Assert-WplTest ($source.Contains('$baselineWarning')) 'The tested baseline gate result is no longer consumed.'
+        Assert-WplTest ($source -match 'baselineGated') 'Rows no longer carry the baseline gate flag.'
+        Assert-WplTest ($source -match 'baselineNotice') 'The plan no longer publishes a single baseline notice.'
+        Assert-WplTest (-not ($source -match '(?s)reason = \[ordered\]@\{\s*ko = if')) 'Row reasons still concatenate the baseline warning.'
+    }
+
     It 'starts tools from their executable directory and preserves no-argument compatibility' {
         $gui = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
         $session = Get-Content -LiteralPath (Join-Path $root 'scripts\Start-WplToolSession.ps1') -Raw
