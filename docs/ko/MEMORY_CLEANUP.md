@@ -1,29 +1,33 @@
 # 네이티브 메모리 정리
 
-원팩에는 MemReduct가 제공하는 핵심적인 Windows 메모리 목록 정리 기능을 네이티브 API로 직접 호출하는 콘솔 기능이 있습니다. 별도 실행 파일을 번들하거나 내려받지 않으며, 메모리 상태를 읽고 사용자가 선택한 항목만 한 번 정리합니다.
+원팩에는 MemReduct가 제공하는 정리 영역 8개를 모두 같은 네이티브 API로 직접 호출하는 콘솔 기능이 있습니다. 별도 실행 파일을 번들하거나 내려받지 않으며, 메모리 상태를 읽고 사용자가 선택한 항목만 한 번 정리합니다.
 
 ## 무엇을 하는가
 
-`WinPortableLab.Memory.psm1`은 `NtSetSystemInformation`의 `SystemMemoryListInformation`(정보 클래스 80)과 Windows의 `EmptyWorkingSet`, `SetSystemFileCacheSize`를 사용합니다. 실행 전후 스냅샷과 각 호출의 성공·실패·건너뜀 상태를 기록합니다. 작업은 현재 실행 동안만 적용되며 레지스트리나 영구 설정을 바꾸지 않습니다.
+`WinPortableLab.Memory.psm1`은 `NtSetSystemInformation`의 `SystemMemoryListInformation`(클래스 80), `SystemFileCacheInformationEx`(클래스 81), `SystemCombinePhysicalMemoryInformation`(클래스 130), `SystemRegistryReconciliationInformation`(클래스 155)와 Windows의 `SetSystemFileCacheSize`, `EmptyWorkingSet`, `CreateFile`, `FlushFileBuffers`를 사용합니다. 실행 전후 스냅샷과 각 호출의 성공·실패·건너뜀 상태를 기록합니다. 작업은 현재 실행 동안만 적용되며 레지스트리 값이나 영구 설정을 바꾸지 않습니다.
 
-실제 정리에는 관리자 권한과 토큰의 `SeProfileSingleProcessPrivilege`가 필요합니다. 시스템 파일 캐시는 `SeIncreaseQuotaPrivilege`도 필요합니다. 일반 권한에서는 메모리 요약과 `-Report` 계획만 확인할 수 있습니다.
+실제 정리에는 관리자 권한과 토큰의 `SeProfileSingleProcessPrivilege`가 필요하며, 이 권한은 작업 집합·메모리 목록·물리 메모리 목록 병합에 함께 쓰입니다. 시스템 파일 캐시는 `SeIncreaseQuotaPrivilege`도 필요합니다. 일반 권한에서는 메모리 요약과 `-Report` 계획만 확인할 수 있습니다.
 
 ## 항목별 의미와 사용 시점
 
 | 항목 | 동작 | 사용 시점 |
 |---|---|---|
 | `WorkingSet` | 프로세스 작업 집합을 비움 | 특정 앱을 다시 읽게 해도 되는 짧은 진단 전 |
-| `SystemWorkingSet` | Windows 시스템 작업 집합을 비움 | 시스템 캐시가 비정상적으로 커졌는지 비교할 때 |
-| `ModifiedPageList` | 디스크 기록 대기 중인 수정 페이지를 flush | 쓰기 작업이 끝난 뒤에만, 원인 비교가 필요할 때 |
-| `StandbyList` | 재사용 가능한 대기 캐시 페이지를 비움 | 캐시 재사용보다 즉시 가용 메모리 비교가 중요한 일회성 점검 |
+| `SystemFileCache` | 파일 캐시를 flush하고 기존 최소·최대 한도와 플래그를 원복 | 캐시 영향까지 비교할 때. MemReduct 기본 마스크에 포함 |
+| `ModifiedFileCache` | 탑재된 모든 볼륨의 쓰기 캐시를 flush | 파일 시스템 기록을 먼저 끝내야 할 때 |
+| `ModifiedPageList` | 디스크 기록 대기 중인 수정 페이지를 flush | 선택형 freeze 영역. 쓰기 작업이 끝난 뒤에만 |
+| `StandbyList` | 재사용 가능한 대기 캐시 페이지를 비움 | 선택형 freeze 영역. 즉시 가용 메모리 비교가 중요한 일회성 점검 |
 | `LowPriorityStandbyList` | 낮은 우선순위 대기 페이지만 비움 | 전체 대기 목록을 건드리지 않고 좁게 비교할 때 |
-| `SystemFileCache` | 파일 캐시를 flush하고 기존 최소·최대 한도와 플래그를 원복 | 기본 선택에는 포함되지 않으며, 캐시 영향까지 확인할 때만 명시적으로 선택 |
+| `RegistryCache` | 대기 중인 레지스트리 하이브를 디스크로 내림 (Windows 8.1 이상) | 레지스트리 사용이 많은 비교 전. 레지스트리 값은 바꾸지 않음 |
+| `CombineMemoryLists` | 커널에 물리 메모리 목록 병합을 요청 (Windows 10 이상) | 물리 메모리 단편화를 줄일 때. MemReduct 기본 마스크에 포함 |
 
-`Combined`의 기본 구성은 `WorkingSet`, `SystemWorkingSet`, `ModifiedPageList`, `StandbyList`, `LowPriorityStandbyList`입니다. 파일 캐시는 기본에서 제외됩니다. 대기 목록·수정 목록·파일 캐시를 실제로 정리하려면 `-AcknowledgeRisk`가 필요합니다. 특정 프로세스만 대상으로 하려면 `-ProcessId`를 추가하십시오. 보호된 프로세스의 핸들을 열 수 없으면 해당 프로세스만 건너뛰고 결과에 개수를 남깁니다.
+`Combined`의 기본 구성은 MemReduct의 기본 마스크와 같습니다. `WorkingSet`, `SystemFileCache`, `ModifiedFileCache`, `LowPriorityStandbyList`, `RegistryCache`, `CombineMemoryLists`이고, MemReduct가 freeze로 분류하는 `StandbyList`와 `ModifiedPageList`만 기본에서 빠집니다. 이 두 항목을 실제로 정리하려면 `-AcknowledgeRisk`가 필요합니다. `RegistryCache`와 `CombineMemoryLists`는 해당 클래스를 제공하지 않는 Windows 빌드에서 실행 대신 건너뜀으로 보고합니다. 특정 프로세스만 대상으로 하려면 `-ProcessId`를 추가하십시오. 보호된 프로세스의 핸들을 열 수 없으면 해당 프로세스만 건너뛰고 결과에 개수를 남깁니다.
+
+실행할 때마다 `logs\memory-cleanup-stats.json`에 실행 횟수, 누적 확보량, 마지막 정리 시각이 누적됩니다. MemReduct가 설정 파일에 남기는 통계와 같은 항목입니다.
 
 ## 하지 않는 것
 
-- `ClearPageFileAtShutdown`, `LargeSystemCache`, `DisablePagingExecutive` 같은 레지스트리나 시스템 설정을 변경하지 않습니다.
+- `ClearPageFileAtShutdown`, `LargeSystemCache`, `DisablePagingExecutive` 같은 레지스트리 값이나 시스템 설정을 변경하지 않습니다. 레지스트리 캐시 정리는 값을 쓰지 않고 대기 중인 하이브를 디스크로 내리기만 합니다.
 - 자동 실행, 부팅 시 실행, 임계값 기반 실행, 예약 작업을 만들지 않습니다.
 - 메모리 누수 진단 도구가 아닙니다. 누수 원인은 프로세스별 추적과 장시간 관찰로 확인해야 합니다.
 - 안정성 테스트가 아닙니다. RAM 오버클럭·CPU·GPU 검증은 TestMem5, OCCT 등 별도 도구로 수행하십시오.
@@ -49,23 +53,29 @@
 작업 집합만 선택하면 위험 확인 없이 실행할 수 있습니다.
 
 ```powershell
-.\scripts\Clear-WplSystemMemory.ps1 -Root . -Area WorkingSet,SystemWorkingSet -Language ko
+.\scripts\Clear-WplSystemMemory.ps1 -Root . -Area WorkingSet -Language ko
 .\scripts\Clear-WplSystemMemory.ps1 -Root . -Area WorkingSet -ProcessId 1234,5678 -Language ko
 ```
 
-`-Json`은 스냅샷, 전후 사용량, 변화량, 항목별 결과를 JSON으로 출력합니다. 모든 실행 결과는 `logs\memory-cleanup-<timestamp>.json`에도 남습니다. 이 기능은 시스템을 영구 변경하지 않으므로 별도의 복원 명령은 필요하지 않습니다.
+`-Json`은 스냅샷, 전후 사용량, 변화량, 항목별 결과와 누적 통계를 JSON으로 출력합니다. 모든 실행 결과는 `logs\memory-cleanup-<timestamp>.json`에도 남습니다. 이 기능은 시스템을 영구 변경하지 않으므로 별도의 복원 명령은 필요하지 않습니다.
 
 ## MemReduct와의 비교
 
 | 구분 | 이 기능 | MemReduct와의 관계 |
 |---|---|---|
-| 작업 집합 정리 | 지원 (`WorkingSet`, `SystemWorkingSet`) | MemReduct의 핵심 작업 집합 정리와 같은 Windows 메모리 목록 명령을 사용 |
-| 수정 페이지 목록 | 지원 (`ModifiedPageList`) | MemReduct의 수정 목록 flush와 같은 명령 상수 3 |
-| 대기 목록 | 지원 (`StandbyList`, `LowPriorityStandbyList`) | MemReduct의 대기·낮은 우선순위 대기 목록과 같은 명령 상수 4·5 |
-| 시스템 파일 캐시 | 명시 선택 시 지원, 기본 제외 | `SetSystemFileCacheSize(-1,-1,0)`로 flush한 뒤 읽어 둔 한도와 플래그를 원복 |
+| 작업 집합 정리 | 지원 (`WorkingSet`) | MemReduct의 `REDUCT_WORKINGSET`과 같은 `MemoryEmptyWorkingSets` 명령 |
+| 수정 페이지 목록 | 지원 (`ModifiedPageList`) | MemReduct의 `REDUCT_MODIFIEDLIST`과 같은 명령 상수 3 |
+| 대기 목록 | 지원 (`StandbyList`, `LowPriorityStandbyList`) | MemReduct의 `REDUCT_STANDBYLIST`·`REDUCT_STANDBYPRIORITY0LIST`과 같은 명령 상수 4·5 |
+| 시스템 파일 캐시 | 지원 (`SystemFileCache`) | MemReduct가 `SystemFileCacheInformationEx`로 요청하는 것과 같은 flush. 이 구현은 현재 한도를 먼저 읽어 원복 |
+| 볼륨 쓰기 캐시 | 지원 (`ModifiedFileCache`) | `REDUCT_MODIFIEDFILECACHE`와 같은 볼륨 캐시 flush. 마운트 관리자 IOCTL 대신 문서화된 `CreateFile`/`FlushFileBuffers` 사용 |
+| 레지스트리 캐시 | 지원 (`RegistryCache`) | `REDUCT_REGISTRYCACHE`와 같은 `SystemRegistryReconciliationInformation` 호출, 같은 Windows 8.1 게이트 |
+| 물리 메모리 목록 병합 | 지원 (`CombineMemoryLists`) | `REDUCT_COMBINEMEMORYLISTS`와 같은 `SystemCombinePhysicalMemoryInformation` 호출, 같은 Windows 10 게이트 |
+| 정리 통계 | 지원 (`logs\memory-cleanup-stats.json`) | MemReduct가 남기는 실행 횟수·누적 확보량·마지막 정리 시각과 같은 항목 |
 | 개별 프로세스 | 지원 (`EmptyWorkingSet`, `-ProcessId`) | MemReduct의 전체 정리 보완용으로 제공 |
 | 자동·예약 정리 | 의도적으로 제외 | 프로젝트 원칙상 자동 실행과 예약 작업을 만들지 않음 |
-| 레지스트리 캐시·레지스트리 설정 | 의도적으로 제외 | 설정 변경 없음 원칙과 범위를 지키며 레지스트리에 쓰지 않음 |
+| 트레이 아이콘·단축키·상주 모니터링 | 의도적으로 제외 | 점검할 때 열고 닫는 콘솔이며 상주하지 않음 |
+| 레지스트리 값·시스템 설정 변경 | 의도적으로 제외 | 설정 변경 없음 원칙과 범위를 지키며 레지스트리에 값을 쓰지 않음 |
+| 기본 마스크 | `Combined`가 `REDUCT_MASK_DEFAULT`와 동일 | 기본 6개 영역이 그대로 실행되고 freeze 2개만 선택형으로 남음 |
 | 제3자 실행 파일 | 의도적으로 제외 | MemReduct 실행 파일을 번들·다운로드하지 않고 Win32/NT API를 직접 호출 |
 | 모달 확인 창 | 의도적으로 제외 | GUI 안의 인라인 위험 확인란과 결과 표시를 사용 |
 

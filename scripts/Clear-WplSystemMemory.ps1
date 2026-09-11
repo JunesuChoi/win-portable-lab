@@ -20,6 +20,7 @@ Import-Module (Join-Path $Root 'src\WinPortableLab.Memory.psm1') -Force
 $logDirectory = Join-Path $Root 'logs'
 if (-not (Test-Path -LiteralPath $logDirectory -PathType Container)) { New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null }
 $logPath = Join-Path $logDirectory ('memory-cleanup-{0}.json' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+$statsPath = Join-Path $logDirectory 'memory-cleanup-stats.json'
 
 function Write-WplMemoryLog([object]$Value) {
     try { $Value | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $logPath -Encoding utf8 } catch { }
@@ -34,7 +35,9 @@ try {
     $arguments = @{}
     if ($Area) { $arguments.Area = $Area }
     if ($ProcessId) { $arguments.ProcessId = $ProcessId }
-    $result = Clear-WplSystemMemory @arguments -Report:$Report -AcknowledgeRisk:$AcknowledgeRisk
+    # A real run also appends to the running counters Mem Reduct keeps, so the
+    # operator can see the run count and cumulative freed memory between boots.
+    $result = Clear-WplSystemMemory @arguments -Report:$Report -AcknowledgeRisk:$AcknowledgeRisk -StatsPath $statsPath
     Write-WplMemoryLog $result
 
     if ($Json) {
@@ -51,6 +54,10 @@ try {
         $skipped = @($result.Results | Where-Object { $_.Skipped }).Count
         $delta = if ($null -eq $result.DeltaBytes) { '-' } else { '{0:N2} MB' -f ([double]$result.DeltaBytes / 1MB) }
         Write-Host (Get-WplText -Key MemoryCleanupComplete -Language $Language -ArgumentList @($completed,$skipped,$delta)) -ForegroundColor Green
+        if ($result.Statistics) {
+            $statsText = Get-WplText -Key MemoryStatistics -Language $Language -ArgumentList @([int]$result.Statistics.runCount, ('{0:N2} MB' -f ([double]$result.Statistics.totalFreedBytes / 1MB)), ('{0:N2} MB' -f ([double]$result.Statistics.lastFreedBytes / 1MB)))
+            Write-Host $statsText -ForegroundColor DarkCyan
+        }
     }
     foreach ($entry in @($result.Results)) {
         $tone = if ($entry.ReportOnly) { 'DarkGray' } elseif ($entry.Success) { 'Green' } elseif ($entry.Skipped) { 'Yellow' } else { 'Red' }

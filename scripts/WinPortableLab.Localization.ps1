@@ -132,19 +132,21 @@ function Get-WplText {
         GuiMemory=@{ko='CPU · RAM 안정성';en='CPU and RAM stability'}
         GuiMemoryClean=@{ko='메모리 정리';en='Clean memory'}
         GuiMemoryCleanTitle=@{ko='네이티브 메모리 정리';en='Native memory cleanup'}
-        GuiMemoryCleanIntro=@{ko='MemReduct와 같은 Windows 메모리 목록 정리 기능입니다. 작업은 일시적이며 레지스트리나 영구 설정을 변경하지 않습니다. 대기·수정 목록은 다시 읽어야 할 수 있으므로 필요한 때만 사용하십시오.';en='Windows memory-list cleanup similar to MemReduct. The operation is temporary and does not change the registry or persistent settings. Standby and modified lists may need to be read again, so use them only when needed.'}
-        GuiMemoryCleanRisk=@{ko='위험 항목을 선택하면 대기·수정 메모리와 파일 캐시가 비워질 수 있음을 확인합니다. 이 기능은 누수 진단이나 안정성 테스트가 아닙니다.';en='I understand that selected risk areas may discard standby, modified memory and file-cache contents. This is not a leak diagnostic or a stability test.'}
+        GuiMemoryCleanIntro=@{ko='MemReduct의 정리 영역 8개를 모두 같은 네이티브 API로 수행합니다. 작업은 일시적이며 레지스트리 값이나 영구 설정을 변경하지 않습니다. 실행 순서와 기본 선택은 MemReduct의 기본 마스크와 같습니다.';en='All eight MemReduct cleanup regions are performed through the same native APIs. The operation is temporary and changes no registry value or persistent setting. Order and default selection match MemReduct default mask.'}
+        GuiMemoryCleanRisk=@{ko='대기 목록과 수정 목록을 선택하면 재사용 가능한 캐시와 아직 기록되지 않은 페이지까지 버려집니다. 이 두 항목만 확인이 필요하며, 나머지는 기본 정리입니다. 이 기능은 누수 진단이나 안정성 테스트가 아닙니다.';en='Selecting the standby and modified lists discards reusable cache and pages that have not been written yet. Only these two need acknowledgement; the rest are the default cleanup. This is not a leak diagnostic or a stability test.'}
         GuiMemoryCleanRun=@{ko='선택 항목 정리';en='Clean selected'}
         GuiMemoryCleanRefresh=@{ko='새로고침';en='Refresh'}
         GuiMemoryCleanElevate=@{ko='관리자 권한으로 다시 열기';en='Reopen as administrator'}
-        GuiMemoryCleanReady=@{ko='정리할 항목을 선택하십시오. 기본 목록에는 파일 캐시가 포함되지 않습니다.';en='Select the areas to clean. The system file cache is excluded from the default list.'}
+        GuiMemoryCleanReady=@{ko='정리할 항목을 선택하십시오. 기본 선택은 MemReduct의 기본 마스크와 같고, 대기·수정 목록만 빠져 있습니다.';en='Select the areas to clean. The default selection matches the MemReduct default mask with only the standby and modified lists left out.'}
         GuiMemoryCleanNeedsAdmin=@{ko='실행에는 관리자 권한이 필요합니다. 현재 창은 보고와 새로고침만 할 수 있습니다.';en='Administrator rights are required to execute cleanup. This window can only report and refresh in its current state.'}
         GuiMemoryCleanSelectArea=@{ko='정리할 항목을 하나 이상 선택하십시오.';en='Select at least one memory area to clean.'}
-        GuiMemoryCleanAcknowledge=@{ko='대기 목록·수정 목록·파일 캐시를 정리하려면 위험 확인란을 선택하십시오.';en='Check the risk acknowledgement before cleaning standby, modified lists or the file cache.'}
+        GuiMemoryCleanAcknowledge=@{ko='대기 목록·수정 목록을 정리하려면 위험 확인란을 선택하십시오.';en='Check the risk acknowledgement before cleaning the standby and modified lists.'}
         GuiMemoryCleanRunning=@{ko='네이티브 메모리 정리를 실행하고 있습니다...';en='Running native memory cleanup...'}
         GuiMemoryCleanComplete=@{ko='정리 완료: {0}개 성공 · 사용량 변화 {1}';en='Cleanup complete: {0} succeeded · usage change {1}'}
         GuiMemoryCleanFailed=@{ko='메모리 정리 실패: {0}';en='Memory cleanup failed: {0}'}
         GuiMemoryCleanElevationFailed=@{ko='관리자 권한으로 다시 열지 못했습니다: {0}';en='Could not reopen as administrator: {0}'}
+        GuiMemoryCleanStats=@{ko='정리 통계: {0}회 실행 · 누적 {1}';en='Cleanup statistics: {0} runs · {1} total'}
+        GuiMemoryCleanLast=@{ko='마지막 정리: {0}회 실행 · 누적 {1} · {2}';en='Last cleanup: {0} runs · {1} total · {2}'}
         MemorySummaryTotal=@{ko='총 메모리';en='Total memory'}
         MemorySummaryAvailable=@{ko='가용 메모리';en='Available'}
         MemorySummaryUsed=@{ko='사용 중';en='Used'}
@@ -154,11 +156,14 @@ function Get-WplText {
         MemorySummaryCache=@{ko='시스템 캐시';en='System cache'}
         MemorySummaryCaptured=@{ko='수집 시각';en='Captured'}
         MemoryAreaWorkingSet=@{ko='작업 집합: 프로세스가 현재 점유한 작업 집합을 비웁니다. 앱을 다시 사용할 때 페이지를 다시 읽을 수 있습니다.';en='Working set: trims process working sets. Applications may read pages again when they are used.'}
-        MemoryAreaSystemWorkingSet=@{ko='시스템 작업 집합: Windows 시스템 작업 집합을 비웁니다. 일시적인 재읽기 비용이 생길 수 있습니다.';en='System working set: trims the Windows system working set. A temporary reread cost may occur.'}
         MemoryAreaModifiedPageList=@{ko='수정 페이지 목록: 디스크에 기록 대기 중인 수정 페이지를 flush합니다. 저장 중인 작업을 방해할 수 있어 주의가 필요합니다.';en='Modified page list: flushes modified pages waiting to be written to disk. Use caution while writes are in progress.'}
         MemoryAreaStandbyList=@{ko='대기 목록: 재사용 가능한 캐시 페이지를 비웁니다. 다시 필요한 파일은 저장장치에서 읽습니다.';en='Standby list: purges reclaimable cached pages. Files needed again must be read from storage.'}
         MemoryAreaLowPriorityStandbyList=@{ko='낮은 우선순위 대기 목록: 우선순위가 낮은 캐시 페이지만 비웁니다. 대기 목록보다 범위가 좁습니다.';en='Low-priority standby list: purges only the lowest-priority cached pages. It is narrower than the standby list.'}
-        MemoryAreaSystemFileCache=@{ko='시스템 파일 캐시: 파일 시스템 캐시를 flush한 뒤 기존 최소·최대 한도와 플래그를 원복합니다. 기본 선택에서 제외됩니다.';en='System file cache: flushes the file-system cache, then restores the previous minimum and maximum limits and flags. Excluded by default.'}
+        MemoryAreaSystemFileCache=@{ko='시스템 파일 캐시: 파일 시스템 캐시를 flush한 뒤 기존 최소·최대 한도와 플래그를 원복합니다. MemReduct 기본 마스크에 포함됩니다.';en='System file cache: flushes the file-system cache, then restores the previous minimum and maximum limits and flags. Part of the MemReduct default mask.'}
+        MemoryAreaModifiedFileCache=@{ko='볼륨 쓰기 캐시: 탑재된 각 볼륨의 쓰기 캐시를 flush합니다. 파일 시스템이 기록을 마무리하도록 강제합니다.';en='Volume write cache: flushes the write cache of every mounted volume, forcing file-system writes to complete.'}
+        MemoryAreaRegistryCache=@{ko='레지스트리 캐시: 대기 중인 레지스트리 하이브를 디스크로 내립니다. 레지스트리 값은 변경하지 않습니다. Windows 8.1 이상.';en='Registry cache: flushes pending registry hives to disk. No registry value is changed. Windows 8.1 or later.'}
+        MemoryAreaCombineMemoryLists=@{ko='물리 메모리 목록 병합: 커널이 물리 메모리 목록을 병합하도록 요청해 단편화를 줄입니다. Windows 10 이상.';en='Combine memory lists: asks the kernel to combine its physical memory lists, reducing fragmentation. Windows 10 or later.'}
+        MemoryStatistics=@{ko='정리 통계: {0}회 실행 · 누적 {1} · 마지막 {2}';en='Cleanup statistics: {0} runs · {1} total · {2} last'}
         MemoryNeedsAdmin=@{ko='메모리 정리 실행에는 관리자 권한이 필요합니다. 보고서만 보려면 -Report를 사용하십시오.';en='Administrator rights are required to execute memory cleanup. Use -Report for a plan-only report.'}
         MemoryReportReady=@{ko='메모리 정리 계획만 생성했습니다. 실행하지 않았습니다: {0}';en='Generated a memory cleanup plan only; nothing was executed: {0}'}
         MemoryCleanupComplete=@{ko='메모리 정리 완료: {0}개 성공, {1}개 건너뜀, 사용량 변화 {2}';en='Memory cleanup complete: {0} succeeded, {1} skipped, usage change {2}'}

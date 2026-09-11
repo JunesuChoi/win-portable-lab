@@ -4,6 +4,7 @@
 # operation or a privilege capability check first needs them. Importing this
 # module must stay cheap for the normal inventory/check path.
 $script:WplMemoryNativeTypeReady = $false
+$script:WplMemoryOsBuild = $null
 # SystemMemoryListInformation = 80; the native command values are
 # MemoryEmptyWorkingSets = 2, MemoryFlushModifiedList = 3,
 # MemoryPurgeStandbyList = 4 and MemoryPurgeLowPriorityStandbyList = 5.
@@ -12,6 +13,17 @@ $script:WplMemoryEmptyWorkingSets = 2
 $script:WplMemoryFlushModifiedList = 3
 $script:WplMemoryPurgeStandbyList = 4
 $script:WplMemoryPurgeLowPriorityStandbyList = 5
+# The remaining Mem Reduct regions need three more information classes:
+# SystemFileCacheInformationEx = 81 (system file cache), 
+# SystemCombinePhysicalMemoryInformation = 130 (combine memory lists) and
+# SystemRegistryReconciliationInformation = 155 (flush registry hives).
+$script:WplMemoryFileCacheInformationClass = 81
+$script:WplMemoryCombineMemoryClass = 130
+$script:WplMemoryRegistryReconciliationClass = 155
+# Mem Reduct gates two of the regions by operating-system version, so the
+# module reports them as skipped instead of calling an absent class.
+$script:WplMemoryWindows81Build = 9600
+$script:WplMemoryWindows10Build = 10240
 
 function Initialize-WplMemoryNativeType {
     if ($script:WplMemoryNativeTypeReady) { return }
@@ -24,12 +36,17 @@ function Initialize-WplMemoryNativeType {
         #   -1/-1 as the flush sentinel, flags=0 as "retain current limits", and
         #   SeIncreaseQuotaPrivilege:
         #   https://learn.microsoft.com/windows/win32/api/memoryapi/nf-memoryapi-setsystemfilecachesize
+        # - Microsoft Learn CreateFile and FlushFileBuffers document the volume
+        #   handle used to flush a whole volume's cache:
+        #   https://learn.microsoft.com/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers
         # - The MIT-compatible MemListMgr implementation and the GPL Mem Reduct
         #   source both use SystemMemoryListInformation with the four commands
-        #   below. We keep registry/combined-page/volume-cache operations out of
-        #   this focused module: they are outside the requested native contract.
+        #   below. Mem Reduct's eight-region mask is reproduced in full, so the
+        #   system file cache, combined memory lists, registry cache and volume
+        #   cache regions are implemented here too.
         #   https://github.com/fafalone/MemListMgr/blob/main/modMemListMgr.twin
         #   https://raw.githubusercontent.com/henrypp/memreduct/master/src/main.c
+        #   https://raw.githubusercontent.com/henrypp/memreduct/master/src/main.h
         $source = @'
 using System;
 using System.Runtime.InteropServices;
@@ -55,6 +72,16 @@ public static class WplMemoryNative
     {
         public uint PrivilegeCount;
         public LUID_AND_ATTRIBUTES Privileges;
+    }
+
+    // SystemCombinePhysicalMemoryInformation expects MEMORY_COMBINE_INFORMATION_EX.
+    // A zeroed structure asks the kernel to combine every physical memory list.
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MEMORY_COMBINE_INFORMATION_EX
+    {
+        public IntPtr Handle;
+        public UIntPtr PagesCombined;
+        public uint Flags;
     }
 
     [DllImport("ntdll.dll", ExactSpelling = true)]
@@ -114,6 +141,20 @@ public static class WplMemoryNative
         int BufferLength,
         IntPtr PreviousState,
         IntPtr ReturnLength);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr CreateFile(
+        string lpFileName,
+        uint dwDesiredAccess,
+        uint dwShareMode,
+        IntPtr lpSecurityAttributes,
+        uint dwCreationDisposition,
+        uint dwFlagsAndAttributes,
+        IntPtr hTemplateFile);
+
+    [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool FlushFileBuffers(IntPtr hFile);
 }
 '@
         [void](Add-Type -TypeDefinition $source -Language CSharp -ErrorAction Stop)
@@ -123,6 +164,21 @@ public static class WplMemoryNative
 
 function Test-WplMemoryWindows {
     try { return [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT } catch { return $false }
+}
+
+function Get-WplMemoryOsBuild {
+    # Two regions only exist on newer kernels, so the build number decides
+    # between a real call and an explicit skip. It is read once per session.
+    if ($null -ne $script:WplMemoryOsBuild) { return $script:WplMemoryOsBuild }
+    $build = $null
+    $os = Get-WplMemoryCimOne 'Win32_OperatingSystem'
+    $reported = Get-WplMemoryProperty $os 'BuildNumber'
+    if ($null -ne $reported) { try { $build = [int]$reported } catch { $build = $null } }
+    if ($null -eq $build -or $build -le 0) {
+        try { $build = [int][Environment]::OSVersion.Version.Build } catch { $build = $null }
+    }
+    $script:WplMemoryOsBuild = $build
+    return $build
 }
 
 function Get-WplMemoryCimOne([string]$ClassName) {
@@ -206,17 +262,21 @@ function Get-WplMemoryCleanupArea {
     [CmdletBinding()]
     param()
 
-    # RecordOnly identifies an operation deliberately omitted from the default
-    # Combined plan. Explicitly selecting it with -AcknowledgeRisk is supported
-    # because Microsoft documents the -1/-1 cache-flush sentinel and this module
-    # restores the exact values and flags read immediately before the call.
+    # The eight regions reproduce Mem Reduct's REDUCT_* mask exactly and in its
+    # execution order. RecordOnly marks Mem Reduct's two "freeze" regions
+    # (REDUCT_MASK_FREEZES: standby and modified lists). Mem Reduct keeps them out
+    # of REDUCT_MASK_DEFAULT and they discard cached data irreversibly, so they
+    # stay opt-in and acknowledged here as well. MinimumBuild mirrors the
+    # operating-system gate Mem Reduct applies before each call.
     @(
-        [pscustomobject][ordered]@{ Id='WorkingSet'; RequiresElevation=$true; RecordOnly=$false; DescriptionKey='MemoryAreaWorkingSet' }
-        [pscustomobject][ordered]@{ Id='SystemWorkingSet'; RequiresElevation=$true; RecordOnly=$false; DescriptionKey='MemoryAreaSystemWorkingSet' }
-        [pscustomobject][ordered]@{ Id='ModifiedPageList'; RequiresElevation=$true; RecordOnly=$false; DescriptionKey='MemoryAreaModifiedPageList' }
-        [pscustomobject][ordered]@{ Id='StandbyList'; RequiresElevation=$true; RecordOnly=$false; DescriptionKey='MemoryAreaStandbyList' }
-        [pscustomobject][ordered]@{ Id='LowPriorityStandbyList'; RequiresElevation=$true; RecordOnly=$false; DescriptionKey='MemoryAreaLowPriorityStandbyList' }
-        [pscustomobject][ordered]@{ Id='SystemFileCache'; RequiresElevation=$true; RecordOnly=$true; DescriptionKey='MemoryAreaSystemFileCache' }
+        [pscustomobject][ordered]@{ Id='WorkingSet'; RequiresElevation=$true; RecordOnly=$false; MinimumBuild=$null; DescriptionKey='MemoryAreaWorkingSet' }
+        [pscustomobject][ordered]@{ Id='SystemFileCache'; RequiresElevation=$true; RecordOnly=$false; MinimumBuild=$null; DescriptionKey='MemoryAreaSystemFileCache' }
+        [pscustomobject][ordered]@{ Id='ModifiedFileCache'; RequiresElevation=$true; RecordOnly=$false; MinimumBuild=$null; DescriptionKey='MemoryAreaModifiedFileCache' }
+        [pscustomobject][ordered]@{ Id='ModifiedPageList'; RequiresElevation=$true; RecordOnly=$true; MinimumBuild=$null; DescriptionKey='MemoryAreaModifiedPageList' }
+        [pscustomobject][ordered]@{ Id='StandbyList'; RequiresElevation=$true; RecordOnly=$true; MinimumBuild=$null; DescriptionKey='MemoryAreaStandbyList' }
+        [pscustomobject][ordered]@{ Id='LowPriorityStandbyList'; RequiresElevation=$true; RecordOnly=$false; MinimumBuild=$null; DescriptionKey='MemoryAreaLowPriorityStandbyList' }
+        [pscustomobject][ordered]@{ Id='RegistryCache'; RequiresElevation=$true; RecordOnly=$false; MinimumBuild=$script:WplMemoryWindows81Build; DescriptionKey='MemoryAreaRegistryCache' }
+        [pscustomobject][ordered]@{ Id='CombineMemoryLists'; RequiresElevation=$true; RecordOnly=$false; MinimumBuild=$script:WplMemoryWindows10Build; DescriptionKey='MemoryAreaCombineMemoryLists' }
     )
 }
 
@@ -358,6 +418,109 @@ function Invoke-WplSystemFileCacheCleanup {
     }
 }
 
+function New-WplMemoryResult {
+    param(
+        [string]$Id,
+        [bool]$Success,
+        [bool]$Skipped,
+        [object]$Status,
+        [string]$StatusHex,
+        [string]$Message,
+        [object]$ProcessId,
+        [object]$Detail
+    )
+    [pscustomobject][ordered]@{
+        Id=$Id; Success=[bool]$Success; Skipped=[bool]$Skipped; ReportOnly=$false
+        Status=$Status; StatusHex=$StatusHex; Message=$Message; ProcessId=$ProcessId
+        Detail=$Detail
+    }
+}
+
+function Get-WplVolumePaths {
+    # Win32_Volume is used instead of Win32_LogicalDisk so mount-point-only
+    # volumes without a drive letter are covered as well.
+    $paths = [Collections.Generic.List[string]]::new()
+    foreach ($volume in @(Get-CimInstance -ClassName Win32_Volume -ErrorAction SilentlyContinue)) {
+        $path = $null
+        # Win32_Volume reports DriveLetter with the colon, so it is dropped
+        # before the device-path prefix is rebuilt.
+        if ($volume.DriveLetter) { $path = ('\\.\{0}:' -f ([string]$volume.DriveLetter).TrimEnd(':')) }
+        elseif ($volume.DeviceID) { $path = ([string]$volume.DeviceID).TrimEnd('\') }
+        if ($path -and -not $paths.Contains($path)) { $paths.Add($path) }
+    }
+    if (-not $paths.Count) {
+        foreach ($disk in @(Get-CimInstance -ClassName Win32_LogicalDisk -ErrorAction SilentlyContinue | Where-Object { $_.DriveType -eq 3 })) {
+            if ($disk.DeviceID) { $paths.Add(('{0}\' -f $disk.DeviceID)) }
+        }
+    }
+    return @($paths)
+}
+
+function Invoke-WplVolumeCacheCleanup {
+    # Mem Reduct reaches this region through NtCreateFile on the mount-manager
+    # volume symbolic links. The documented CreateFile and FlushFileBuffers pair
+    # on the same volume handles produces the identical cache flush, so the
+    # public API is used instead of the undocumented device IOCTL.
+    # The L suffix matters: 0xC0000000 alone is parsed as a negative Int32 and
+    # cannot be cast to UInt32.
+    $genericReadWrite = [uint32]0xC0000000L # GENERIC_READ | GENERIC_WRITE
+    $shareReadWrite = [uint32]0x3L # FILE_SHARE_READ | FILE_SHARE_WRITE
+    $openExisting = [uint32]0x3L
+    $invalidHandle = [IntPtr]::new(-1)
+    try { $volumes = @(Get-WplVolumePaths) }
+    catch { return (New-WplMemoryResult -Id 'ModifiedFileCache' -Success $false -Skipped $false -Message ('Volumes could not be enumerated: {0}' -f $_.Exception.Message)) }
+    if (-not $volumes.Count) {
+        return (New-WplMemoryResult -Id 'ModifiedFileCache' -Success $false -Skipped $true -Message 'No mounted volumes were reported; the volume cache was not flushed.')
+    }
+    $flushed = [Collections.Generic.List[string]]::new()
+    $failures = [Collections.Generic.List[string]]::new()
+    foreach ($volume in $volumes) {
+        $handle = $invalidHandle
+        try {
+            $handle = [WplMemoryNative]::CreateFile($volume,$genericReadWrite,$shareReadWrite,[IntPtr]::Zero,$openExisting,0,[IntPtr]::Zero)
+            if ($handle -eq $invalidHandle) {
+                $failures.Add(('{0} (Win32 error {1})' -f $volume,[Runtime.InteropServices.Marshal]::GetLastWin32Error()))
+                continue
+            }
+            if ([WplMemoryNative]::FlushFileBuffers($handle)) { $flushed.Add($volume) }
+            else { $failures.Add(('{0} (Win32 error {1})' -f $volume,[Runtime.InteropServices.Marshal]::GetLastWin32Error())) }
+        }
+        catch { $failures.Add(('{0} ({1})' -f $volume,$_.Exception.Message)) }
+        finally { if ($handle -ne $invalidHandle) { [void][WplMemoryNative]::CloseHandle($handle) } }
+    }
+    $total = $volumes.Count
+    $message = if ($failures.Count -eq 0) { 'Flushed the write cache of {0} of {0} volumes.' -f $total }
+        else { 'Flushed {0} of {1} volumes; failed: {2}' -f $flushed.Count,$total,($failures -join ', ') }
+    New-WplMemoryResult -Id 'ModifiedFileCache' -Success ($failures.Count -eq 0) -Skipped ($flushed.Count -eq 0) -Message $message -Detail $flushed.Count
+}
+
+function Invoke-WplCombineMemoryLists {
+    $buffer = [IntPtr]::Zero
+    try {
+        $size = [Runtime.InteropServices.Marshal]::SizeOf([type][WplMemoryNative+MEMORY_COMBINE_INFORMATION_EX])
+        $buffer = [Runtime.InteropServices.Marshal]::AllocHGlobal($size)
+        # Mem Reduct passes a zeroed structure, which asks the kernel to combine
+        # every physical memory list rather than one process-owned list.
+        for ($offset = 0; $offset -lt $size; $offset++) { [Runtime.InteropServices.Marshal]::WriteByte($buffer,$offset,[byte]0) }
+        $status = [WplMemoryNative]::NtSetSystemInformation([int]$script:WplMemoryCombineMemoryClass,$buffer,$size)
+        $mapped = Get-WplNtStatusDescription $status
+        New-WplMemoryResult -Id 'CombineMemoryLists' -Success ([bool]$mapped.Success) -Skipped $false -Status $mapped.Status -StatusHex $mapped.StatusHex -Message $mapped.Message -Detail $size
+    }
+    catch { New-WplMemoryResult -Id 'CombineMemoryLists' -Success $false -Skipped $false -Message $_.Exception.Message }
+    finally { if ($buffer -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::FreeHGlobal($buffer) } }
+}
+
+function Invoke-WplRegistryCacheCleanup {
+    # SystemRegistryReconciliationInformation flushes the registry hives to disk.
+    # It changes no registry value and needs no buffer, only administrator rights.
+    try {
+        $status = [WplMemoryNative]::NtSetSystemInformation([int]$script:WplMemoryRegistryReconciliationClass,[IntPtr]::Zero,0)
+        $mapped = Get-WplNtStatusDescription $status
+        New-WplMemoryResult -Id 'RegistryCache' -Success ([bool]$mapped.Success) -Skipped $false -Status $mapped.Status -StatusHex $mapped.StatusHex -Message $mapped.Message
+    }
+    catch { New-WplMemoryResult -Id 'RegistryCache' -Success $false -Skipped $false -Message $_.Exception.Message }
+}
+
 function Invoke-WplProcessWorkingSet([int]$ProcessId) {
     $processAccess = [uint32]0x0500 # PROCESS_QUERY_INFORMATION | PROCESS_SET_QUOTA
     $handle = [IntPtr]::Zero
@@ -385,7 +548,9 @@ function Invoke-WplProcessWorkingSet([int]$ProcessId) {
 function Resolve-WplMemoryAreaIds([string[]]$Area) {
     $values = if ($null -eq $Area -or $Area.Count -eq 0) { @('Combined') } else { @($Area) }
     $known = @(Get-WplMemoryCleanupArea | ForEach-Object Id)
-    $combined = @('WorkingSet','SystemWorkingSet','ModifiedPageList','StandbyList','LowPriorityStandbyList')
+    # Combined reproduces Mem Reduct's REDUCT_MASK_DEFAULT: every region except
+    # the two freeze entries that Mem Reduct also leaves out of its default mask.
+    $combined = @(Get-WplMemoryCleanupArea | Where-Object { -not $_.RecordOnly } | ForEach-Object Id)
     $resolved = [Collections.Generic.List[string]]::new()
     foreach ($value in $values) {
         foreach ($candidate in ([string]$value -split ',')) {
@@ -400,15 +565,54 @@ function Resolve-WplMemoryAreaIds([string[]]$Area) {
     return @($resolved)
 }
 
+function Get-WplMemoryCleanupStatistics([string]$Path) {
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
+    try { return (Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json) } catch { return $null }
+}
+
+function Update-WplMemoryCleanupStatistics([string]$Path,[object]$DeltaBytes,[object]$Performed) {
+    # Mem Reduct keeps its StatisticLastReduct and running totals in a config
+    # file. The portable lab writes the same counters next to the per-run logs
+    # instead of a registry key or an application settings file.
+    $previous = Get-WplMemoryCleanupStatistics -Path $Path
+    $total = [int64]0
+    $count = 0
+    if ($previous) {
+        if ($null -ne $previous.TotalFreedBytes) { try { $total = [int64]$previous.TotalFreedBytes } catch { $total = [int64]0 } }
+        if ($null -ne $previous.RunCount) { try { $count = [int]$previous.RunCount } catch { $count = 0 } }
+    }
+    $freed = if ($null -ne $DeltaBytes) { [int64]$DeltaBytes } else { [int64]0 }
+    if ($freed -lt 0) { $freed = [int64]0 }
+    $total = $total + $freed
+    $count = $count + 1
+    $record = [pscustomobject][ordered]@{
+        schemaVersion = 1
+        runCount = $count
+        totalFreedBytes = $total
+        lastFreedBytes = $freed
+        lastAreas = @($Performed)
+        lastCleanupAt = (Get-Date).ToString('o')
+    }
+    try {
+        $directory = Split-Path -Path $Path -Parent
+        if ($directory -and -not (Test-Path -LiteralPath $directory -PathType Container)) { New-Item -ItemType Directory -Path $directory -Force | Out-Null }
+        $record | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $Path -Encoding utf8
+    }
+    catch { }
+    return $record
+}
+
 function Clear-WplSystemMemory {
     [CmdletBinding()]
     param(
         [string[]]$Area = @('Combined'),
         [int[]]$ProcessId,
         [switch]$Report,
-        [switch]$AcknowledgeRisk
+        [switch]$AcknowledgeRisk,
+        [string]$StatsPath
     )
 
+    $areas = @(Get-WplMemoryCleanupArea)
     $areaIds = @(Resolve-WplMemoryAreaIds $Area)
     $processIds = @($ProcessId | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
     $before = Get-WplMemorySnapshot
@@ -417,31 +621,47 @@ function Clear-WplSystemMemory {
     $performed = [Collections.Generic.List[string]]::new()
 
     if ($Report) {
-        foreach ($id in $areaIds) { $results.Add([pscustomobject][ordered]@{ Id=$id; Success=$false; Skipped=$false; ReportOnly=$true; Status=$null; StatusHex=$null; Message='Plan only; no native cleanup was executed.'; ProcessId=$null }) }
-        foreach ($id in $processIds) { $results.Add([pscustomobject][ordered]@{ Id=('Process:{0}' -f $id); Success=$false; Skipped=$false; ReportOnly=$true; Status=$null; StatusHex=$null; Message='Plan only; no process working-set cleanup was executed.'; ProcessId=$id }) }
-        return [pscustomobject][ordered]@{ Requested=$requested; Performed=@(); ReportOnly=$true; Before=$before; After=$before; DeltaBytes=0; Results=@($results) }
+        foreach ($id in $areaIds) { $results.Add([pscustomobject][ordered]@{ Id=$id; Success=$false; Skipped=$false; ReportOnly=$true; Status=$null; StatusHex=$null; Message='Plan only; no native cleanup was executed.'; ProcessId=$null; Detail=$null }) }
+        foreach ($id in $processIds) { $results.Add([pscustomobject][ordered]@{ Id=('Process:{0}' -f $id); Success=$false; Skipped=$false; ReportOnly=$true; Status=$null; StatusHex=$null; Message='Plan only; no process working-set cleanup was executed.'; ProcessId=$id; Detail=$null }) }
+        return [pscustomobject][ordered]@{ Requested=$requested; Performed=@(); ReportOnly=$true; Before=$before; After=$before; DeltaBytes=0; Results=@($results); Statistics=$null }
     }
 
     if (-not (Test-WplMemoryWindows)) { throw 'Native memory cleanup is available only on Windows.' }
-    $riskyAreas = @($areaIds | Where-Object { $_ -notin @('WorkingSet','SystemWorkingSet') })
-    if ($riskyAreas.Count -gt 0 -and -not $AcknowledgeRisk) {
-        throw "Memory areas requiring risk acknowledgement were selected: $($riskyAreas -join ', '). Re-run with -AcknowledgeRisk."
+    # The freeze regions are the only ones Mem Reduct keeps out of its default
+    # mask, and they discard reclaimable and not-yet-written pages, so they need
+    # an explicit acknowledgement before a real call.
+    $freezeIds = @($areas | Where-Object { $_.RecordOnly } | ForEach-Object Id)
+    $freezeAreas = @($areaIds | Where-Object { $freezeIds -contains $_ })
+    if ($freezeAreas.Count -gt 0 -and -not $AcknowledgeRisk) {
+        throw "Memory areas requiring risk acknowledgement were selected: $($freezeAreas -join ', '). Re-run with -AcknowledgeRisk."
     }
     $support = Test-WplMemoryCleanupSupport
     if (-not $support.IsElevated) { throw 'Administrator rights are required to execute native memory cleanup.' }
-    $needsProfilePrivilege = @($areaIds | Where-Object { $_ -ne 'SystemFileCache' }).Count -gt 0
+    # A live call to SystemCombinePhysicalMemoryInformation returns
+    # STATUS_PRIVILEGE_NOT_HELD without SeProfileSingleProcessPrivilege, so it
+    # belongs to the same privilege group as the memory-list commands.
+    $profileIds = @('WorkingSet','ModifiedPageList','StandbyList','LowPriorityStandbyList','CombineMemoryLists')
+    $needsProfilePrivilege = @($areaIds | Where-Object { $profileIds -contains $_ }).Count -gt 0
     if ($needsProfilePrivilege -and -not $support.CanEnableSeProfileSingleProcess) { throw 'SeProfileSingleProcessPrivilege could not be enabled; native memory-list cleanup was not executed.' }
     if ($areaIds -contains 'SystemFileCache' -and -not $support.CanEnableSeIncreaseQuota) { throw 'SeIncreaseQuotaPrivilege could not be enabled; system file-cache cleanup was not executed.' }
     Initialize-WplMemoryNativeType
 
+    $build = Get-WplMemoryOsBuild
     foreach ($id in $areaIds) {
+        $area = $areas | Where-Object { $_.Id -eq $id } | Select-Object -First 1
+        if ($area -and $area.MinimumBuild -and ($null -eq $build -or $build -lt $area.MinimumBuild)) {
+            $results.Add([pscustomobject][ordered]@{ Id=$id; Success=$false; Skipped=$true; ReportOnly=$false; Status=$null; StatusHex=$null; Message=('This Windows build ({0}) does not provide the {1} region; build {2} or later is required.' -f $build,$id,$area.MinimumBuild); ProcessId=$null; Detail=$null })
+            continue
+        }
         $result = switch ($id) {
             'WorkingSet' { Invoke-WplMemoryListCommand $id $script:WplMemoryEmptyWorkingSets; break }
-            'SystemWorkingSet' { Invoke-WplMemoryListCommand $id $script:WplMemoryEmptyWorkingSets; break }
             'ModifiedPageList' { Invoke-WplMemoryListCommand $id $script:WplMemoryFlushModifiedList; break }
             'StandbyList' { Invoke-WplMemoryListCommand $id $script:WplMemoryPurgeStandbyList; break }
             'LowPriorityStandbyList' { Invoke-WplMemoryListCommand $id $script:WplMemoryPurgeLowPriorityStandbyList; break }
             'SystemFileCache' { Invoke-WplSystemFileCacheCleanup; break }
+            'ModifiedFileCache' { Invoke-WplVolumeCacheCleanup; break }
+            'RegistryCache' { Invoke-WplRegistryCacheCleanup; break }
+            'CombineMemoryLists' { Invoke-WplCombineMemoryLists; break }
         }
         $results.Add($result)
         if ($result.Success) { $performed.Add($id) }
@@ -453,7 +673,8 @@ function Clear-WplSystemMemory {
     }
     $after = Get-WplMemorySnapshot
     $delta = if ($null -ne $before.UsedBytes -and $null -ne $after.UsedBytes) { [int64]($before.UsedBytes - $after.UsedBytes) } else { $null }
-    [pscustomobject][ordered]@{ Requested=$requested; Performed=@($performed); ReportOnly=$false; Before=$before; After=$after; DeltaBytes=$delta; Results=@($results) }
+    $statistics = if ($StatsPath) { Update-WplMemoryCleanupStatistics -Path $StatsPath -DeltaBytes $delta -Performed $performed } else { $null }
+    [pscustomobject][ordered]@{ Requested=$requested; Performed=@($performed); ReportOnly=$false; Before=$before; After=$after; DeltaBytes=$delta; Results=@($results); Statistics=$statistics }
 }
 
-Export-ModuleMember -Function Get-WplMemorySnapshot,Get-WplMemoryCleanupArea,Test-WplMemoryCleanupSupport,Clear-WplSystemMemory
+Export-ModuleMember -Function Get-WplMemorySnapshot,Get-WplMemoryCleanupArea,Test-WplMemoryCleanupSupport,Get-WplMemoryCleanupStatistics,Clear-WplSystemMemory

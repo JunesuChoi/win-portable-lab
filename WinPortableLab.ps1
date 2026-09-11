@@ -1811,10 +1811,12 @@ function Show-WplGui {
 
         $areaList = $memoryWindow.FindName('MemoryAreaList')
         $areaChecks = [Collections.Generic.List[object]]::new()
+        $freezeAreaIds = [Collections.Generic.List[string]]::new()
         foreach ($area in @(Get-WplMemoryCleanupArea)) {
             $check = New-Object Windows.Controls.CheckBox
             $check.Tag = [string]$area.Id
             $check.IsChecked = -not [bool]$area.RecordOnly
+            if ([bool]$area.RecordOnly) { $freezeAreaIds.Add([string]$area.Id) }
             $check.Foreground = $window.TryFindResource('InkMuted')
             $check.Margin = New-Object Windows.Thickness 0,0,0,8
             $check.ToolTip = Get-WplText -Key ([string]$area.DescriptionKey) -Language $script:GuiLanguage
@@ -1826,6 +1828,7 @@ function Show-WplGui {
             $areaList.Children.Add($check) | Out-Null
             $areaChecks.Add($check)
         }
+        $statsPath = Join-Path $Root 'logs\memory-cleanup-stats.json'
 
         $formatBytes = {
             param([object]$Value)
@@ -1845,7 +1848,12 @@ function Show-WplGui {
             $memoryWindow.FindName('MemorySummaryModifiedValue').Text = & $formatBytes $snapshot.ModifiedBytes
             $memoryWindow.FindName('MemorySummaryCacheValue').Text = & $formatBytes $snapshot.SystemCacheBytes
             $memoryWindow.FindName('MemorySummaryCapturedValue').Text = if ($snapshot.CapturedAt) { ([datetime]$snapshot.CapturedAt).ToString('yyyy-MM-dd HH:mm:ss') } else { Get-WplText -Key MemoryUnavailable -Language $script:GuiLanguage }
-            $resultText.Text = Get-WplText -Key GuiMemoryCleanReady -Language $script:GuiLanguage
+            $stats = Get-WplMemoryCleanupStatistics -Path $statsPath
+            $resultText.Text = if ($stats) {
+                Get-WplText -Key GuiMemoryCleanLast -Language $script:GuiLanguage -ArgumentList @([int]$stats.runCount, ('{0:N2} MB' -f ([double]$stats.totalFreedBytes / 1MB)), ([datetime]$stats.lastCleanupAt).ToString('yyyy-MM-dd HH:mm:ss'))
+            } else {
+                Get-WplText -Key GuiMemoryCleanReady -Language $script:GuiLanguage
+            }
             $resultText.Foreground = $window.TryFindResource('InkSubtle')
         }
 
@@ -1876,7 +1884,9 @@ function Show-WplGui {
                 $resultText.Foreground = $window.TryFindResource('Caution')
                 return
             }
-            $risky = @($selectedAreas | Where-Object { $_ -notin @('WorkingSet','SystemWorkingSet') })
+            # Only Mem Reduct's two freeze regions need the acknowledgement; every
+            # other region is part of the default mask and runs directly.
+            $risky = @($selectedAreas | Where-Object { $freezeAreaIds -contains $_ })
             if ($risky.Count -and $riskCheck.IsChecked -ne $true) {
                 $resultText.Text = Get-WplText -Key GuiMemoryCleanAcknowledge -Language $script:GuiLanguage
                 $resultText.Foreground = $window.TryFindResource('Caution')
@@ -1892,13 +1902,16 @@ function Show-WplGui {
             $resultText.Text = Get-WplText -Key GuiMemoryCleanRunning -Language $script:GuiLanguage
             $memoryWindow.Dispatcher.Invoke([action]{},'Render')
             try {
-                $cleanup = Clear-WplSystemMemory -Area $selectedAreas -AcknowledgeRisk:($riskCheck.IsChecked -eq $true)
+                $cleanup = Clear-WplSystemMemory -Area $selectedAreas -AcknowledgeRisk:($riskCheck.IsChecked -eq $true) -StatsPath $statsPath
                 $lines = [Collections.Generic.List[string]]::new()
                 $deltaText = if ($null -eq $cleanup.DeltaBytes) { Get-WplText -Key MemoryUnavailable -Language $script:GuiLanguage } else { & $formatBytes $cleanup.DeltaBytes }
                 $lines.Add((Get-WplText -Key GuiMemoryCleanComplete -Language $script:GuiLanguage -ArgumentList @(@($cleanup.Performed).Count,$deltaText)))
                 foreach ($entry in @($cleanup.Results)) {
                     $state = if ($entry.Success) { Get-WplText -Key MemorySucceeded -Language $script:GuiLanguage } elseif ($entry.Skipped) { Get-WplText -Key MemorySkipped -Language $script:GuiLanguage } else { Get-WplText -Key MemoryFailed -Language $script:GuiLanguage }
                     $lines.Add(('[{0}] {1}: {2}' -f $state,$entry.Id,$entry.Message))
+                }
+                if ($cleanup.Statistics) {
+                    $lines.Add((Get-WplText -Key GuiMemoryCleanStats -Language $script:GuiLanguage -ArgumentList @([int]$cleanup.Statistics.runCount, ('{0:N2} MB' -f ([double]$cleanup.Statistics.totalFreedBytes / 1MB)))))
                 }
                 $resultText.Text = $lines -join "`n"
                 $resultText.Foreground = if (@($cleanup.Results | Where-Object { -not $_.Success -and -not $_.Skipped }).Count) { $window.TryFindResource('Caution') } else { $window.TryFindResource('InkMuted') }

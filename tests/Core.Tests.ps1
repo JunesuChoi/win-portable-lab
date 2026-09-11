@@ -868,12 +868,58 @@ Describe 'Native memory cleanup contract' {
         Assert-WplTest (Test-Path -LiteralPath $modulePath -PathType Leaf) 'Native memory module is missing.'
         Import-Module $modulePath -Force
         $exported = @(Get-Command -Module WinPortableLab.Memory -CommandType Function | Select-Object -ExpandProperty Name)
-        foreach ($name in @('Get-WplMemorySnapshot','Get-WplMemoryCleanupArea','Test-WplMemoryCleanupSupport','Clear-WplSystemMemory')) {
+        foreach ($name in @('Get-WplMemorySnapshot','Get-WplMemoryCleanupArea','Test-WplMemoryCleanupSupport','Get-WplMemoryCleanupStatistics','Clear-WplSystemMemory')) {
             Assert-WplTest ($name -in $exported) "Native memory function is not exported: $name"
         }
         $areas = @(Get-WplMemoryCleanupArea)
-        Assert-WplTest (@($areas.Id) -join ',' -eq 'WorkingSet,SystemWorkingSet,ModifiedPageList,StandbyList,LowPriorityStandbyList,SystemFileCache') 'Native cleanup area ids changed.'
-        Assert-WplTest (@($areas | Where-Object Id -eq 'SystemFileCache').RecordOnly -eq $true) 'System file cache must be excluded from the default plan.'
+        Assert-WplTest (@($areas.Id) -join ',' -eq 'WorkingSet,SystemFileCache,ModifiedFileCache,ModifiedPageList,StandbyList,LowPriorityStandbyList,RegistryCache,CombineMemoryLists') 'Native cleanup area ids changed.'
+        # Mem Reduct keeps only the two freeze regions out of REDUCT_MASK_DEFAULT.
+        # Compared order-insensitively: the assertion is about membership, not the execution order.
+        Assert-WplTest ((@($areas | Where-Object RecordOnly | ForEach-Object Id) | Sort-Object) -join ',' -eq 'ModifiedPageList,StandbyList') 'The opt-in freeze regions changed.'
+        Assert-WplTest (@($areas | Where-Object Id -eq 'SystemFileCache').RecordOnly -eq $false) 'The system file cache belongs to the default plan.'
+    }
+
+    It 'reproduces the Mem Reduct default mask and its version gates' {
+        $modulePath = Join-Path $root 'src\WinPortableLab.Memory.psm1'
+        Import-Module $modulePath -Force
+        $module = Get-Module WinPortableLab.Memory
+        $combined = @(& $module { param() @(Resolve-WplMemoryAreaIds @('Combined')) })
+        Assert-WplTest ($combined -join ',' -eq 'WorkingSet,SystemFileCache,ModifiedFileCache,LowPriorityStandbyList,RegistryCache,CombineMemoryLists') "Combined no longer matches REDUCT_MASK_DEFAULT: $($combined -join ',')"
+        $all = @(& $module { param() @(Resolve-WplMemoryAreaIds @('Combined,StandbyList,ModifiedPageList')) })
+        Assert-WplTest ($all.Count -eq 8) 'The two freeze regions could not be added to the plan.'
+        Assert-WplTest (@($all | Sort-Object -Unique).Count -eq 8) 'The resolved plan contains a duplicate region.'
+        $threw = $false
+        try { [void](& $module { param() @(Resolve-WplMemoryAreaIds @('NotARegion')) }) } catch { $threw = $true }
+        Assert-WplTest $threw 'An unknown area id was accepted.'
+        $gates = @{}
+        foreach ($area in @(Get-WplMemoryCleanupArea)) { $gates[$area.Id] = $area.MinimumBuild }
+        Assert-WplTest ($gates['RegistryCache'] -eq 9600) 'The registry cache version gate is wrong.'
+        Assert-WplTest ($gates['CombineMemoryLists'] -eq 10240) 'The combine-memory version gate is wrong.'
+    }
+
+    It 'persists cleanup counters outside the registry' {
+        $modulePath = Join-Path $root 'src\WinPortableLab.Memory.psm1'
+        Import-Module $modulePath -Force
+        $module = Get-Module WinPortableLab.Memory
+        $statsPath = Join-Path $env:TEMP ('wpl-memory-stats-' + [guid]::NewGuid().ToString('N') + '\stats.json')
+        try {
+            Assert-WplTest ($null -eq (Get-WplMemoryCleanupStatistics -Path $statsPath)) 'A missing statistics file should read as null.'
+            # 3 GB exceeds Int32, so the counter also proves Int64 accumulation.
+            $first = & $module { param($p) Update-WplMemoryCleanupStatistics -Path $p -DeltaBytes ([int64]3221225472) -Performed @('WorkingSet') } $statsPath
+            Assert-WplTest ($first.runCount -eq 1 -and [int64]$first.totalFreedBytes -eq [int64]3221225472) 'The first statistics entry is wrong.'
+            $second = & $module { param($p) Update-WplMemoryCleanupStatistics -Path $p -DeltaBytes ([int64]-4096) -Performed @() } $statsPath
+            Assert-WplTest ($second.runCount -eq 2) 'The run count did not advance.'
+            Assert-WplTest ([int64]$second.totalFreedBytes -eq [int64]3221225472) 'A negative delta reduced the cumulative total.'
+            $third = & $module { param($p) Update-WplMemoryCleanupStatistics -Path $p -DeltaBytes ([int64]2147483648) -Performed @('StandbyList') } $statsPath
+            Assert-WplTest ([int64]$third.totalFreedBytes -eq [int64]5368709120) 'The cumulative total is not Int64.'
+            $reread = Get-WplMemoryCleanupStatistics -Path $statsPath
+            Assert-WplTest ([int64]$reread.totalFreedBytes -eq [int64]5368709120) 'The statistics file did not round-trip.'
+            Assert-WplTest (@($reread.lastAreas) -join ',' -eq 'StandbyList') 'The recorded region list is wrong.'
+        }
+        finally {
+            $statsDirectory = Split-Path -Path $statsPath -Parent
+            if (Test-Path -LiteralPath $statsDirectory) { Remove-Item -LiteralPath $statsDirectory -Recurse -Force }
+        }
     }
 
     It 'computes used memory above 2 GB without an Int32 overflow' {
@@ -896,13 +942,19 @@ Describe 'Native memory cleanup contract' {
 
     It 'declares the required native APIs, commands and privilege' {
         $source = Get-Content -LiteralPath (Join-Path $root 'src\WinPortableLab.Memory.psm1') -Raw
-        foreach ($token in @('ntdll.dll','psapi.dll','NtSetSystemInformation','EmptyWorkingSet','GetSystemFileCacheSize','SetSystemFileCacheSize','OpenProcessToken','LookupPrivilegeValue','AdjustTokenPrivileges','SeProfileSingleProcessPrivilege','SeIncreaseQuotaPrivilege')) {
+        foreach ($token in @('ntdll.dll','psapi.dll','kernel32.dll','NtSetSystemInformation','EmptyWorkingSet','GetSystemFileCacheSize','SetSystemFileCacheSize','OpenProcessToken','LookupPrivilegeValue','AdjustTokenPrivileges','CreateFile','FlushFileBuffers','MEMORY_COMBINE_INFORMATION_EX','SeProfileSingleProcessPrivilege','SeIncreaseQuotaPrivilege')) {
             Assert-WplTest ($source -match [regex]::Escape($token)) "Native memory source is missing: $token"
         }
         Assert-WplTest ($source -match 'WplMemorySystemInformationClass = 80') 'SystemMemoryListInformation class 80 is missing.'
+        # The remaining Mem Reduct regions are addressed by their own information classes.
+        foreach ($class in @('WplMemoryFileCacheInformationClass = 81','WplMemoryCombineMemoryClass = 130','WplMemoryRegistryReconciliationClass = 155')) {
+            Assert-WplTest ($source -match [regex]::Escape($class)) "Native memory information class is missing: $class"
+        }
         foreach ($command in @('WplMemoryEmptyWorkingSets = 2','WplMemoryFlushModifiedList = 3','WplMemoryPurgeStandbyList = 4','WplMemoryPurgeLowPriorityStandbyList = 5')) {
             Assert-WplTest ($source -match [regex]::Escape($command)) "Native memory command is missing: $command"
         }
+        # 0xC0000000 is a negative Int32 literal, so the volume access mask must be widened.
+        Assert-WplTest ($source -match '\[uint32\]0xC0000000L') 'The generic read/write mask would fail an Int32 conversion.'
         Assert-WplTest ($source -match 'Marshal\.AllocHGlobal\(4\)' -and $source -match 'Marshal\.WriteInt32') 'The memory-list command buffer is not a 4-byte integer.'
         Assert-WplTest ($source -match 'NtSetSystemInformation\(\s*int SystemInformationClass,\s*\s*IntPtr SystemInformation,\s*\s*int SystemInformationLength') 'NtSetSystemInformation signature drifted.'
     }
