@@ -762,13 +762,25 @@ Describe 'Network driver recovery contract' {
     }
 
     It 'tracks no empty placeholder files and keeps the tools documentation' {
-        $tracked = @(& git -C $root ls-files)
-        Assert-WplTest ($tracked.Count -gt 0) 'git ls-files returned nothing.'
-        $placeholders = @($tracked | Where-Object { $_ -match '(^|/)\.gitkeep$' })
-        Assert-WplTest ($placeholders.Count -eq 0) "Tracked placeholder files reappeared: $($placeholders -join ', ')"
-        # The per-folder purpose documents are real bilingual content, not
-        # placeholders, so they must survive the cleanup.
-        $toolDocs = @($tracked | Where-Object { $_ -match '^tools/\d{2}-[^/]+/README\.md$' })
+        # A portable deployment is a copied tree with no .git directory, so the
+        # placeholder rules below run only when git can answer for this checkout.
+        $tracked = @()
+        try { $tracked = @(& git -C $root ls-files 2>$null) } catch { $tracked = @() }
+        if ($tracked.Count -gt 0) {
+            $placeholders = @($tracked | Where-Object { $_.Split('/')[-1] -eq '.gitkeep' })
+            Assert-WplTest ($placeholders.Count -eq 0) "Tracked placeholder files reappeared: $($placeholders -join ', ')"
+            # The per-folder purpose documents are real bilingual content, not
+            # placeholders, so they must survive the cleanup.
+            $toolDocs = @($tracked | Where-Object { $_.Split('/').Count -eq 3 -and $_ -like 'tools/*/README.md' })
+        }
+        else {
+            $toolRoot = Join-Path $root 'tools'
+            $placeholders = @(Get-ChildItem -LiteralPath $toolRoot -Recurse -Force -Filter '.gitkeep' -ErrorAction SilentlyContinue)
+            Assert-WplTest ($placeholders.Count -eq 0) "Placeholder files reappeared: $(@($placeholders.FullName) -join ', ')"
+            $toolDocs = @(Get-ChildItem -LiteralPath $toolRoot -Directory -ErrorAction SilentlyContinue |
+                ForEach-Object { Join-Path $_.FullName 'README.md' } |
+                Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
+        }
         Assert-WplTest ($toolDocs.Count -eq 10) "Expected 10 tools folder guides; found $($toolDocs.Count)."
     }
 }
