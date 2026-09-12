@@ -1023,4 +1023,89 @@ Describe 'Native memory cleanup contract' {
         Assert-WplTest ($check -notmatch 'Clear-WplSystemMemory|Show-GuiMemoryClean') 'Inventory/check path invokes memory cleanup.'
         Assert-WplTest ($source -match "Action -eq 'memory'") 'Memory action is not dispatched.'
     }
+    It 'matches the Mem Reduct automatic reduction defaults and cooldown' {
+        $modulePath = Join-Path $root 'src\WinPortableLab.Memory.psm1'
+        Import-Module $modulePath -Force
+        # Mem Reduct ships DEFAULT_AUTOREDUCT_VAL 90, AUTOREDUCT_COOLDOWN 30 and
+        # DEFAULT_AUTOREDUCTINTERVAL_VAL 30, so the defaults are asserted, not assumed.
+        $defaults = Get-WplMemoryAutoCleanupPolicy
+        Assert-WplTest ($defaults.Enabled -eq $false) 'Automatic cleanup must stay opt-in.'
+        Assert-WplTest ($defaults.ThresholdPercent -eq 90) 'The default threshold is not Mem Reduct 90 percent.'
+        Assert-WplTest ($defaults.CooldownSeconds -eq 30) 'The default cooldown is not Mem Reduct 30 seconds.'
+        Assert-WplTest ($defaults.IntervalSeconds -eq 30) 'The default check interval is not Mem Reduct 30 seconds.'
+        Assert-WplTest (@($defaults.Areas) -notcontains 'StandbyList' -and @($defaults.Areas) -notcontains 'ModifiedPageList') 'The automatic plan must not include the freeze regions.'
+
+        $enabled = [pscustomobject]@{ Enabled=$true; ThresholdPercent=90; CooldownSeconds=30; IntervalSeconds=30; Areas=@('WorkingSet') }
+        $below = Test-WplMemoryAutoCleanupDue -Policy $enabled -UsedPercent 89.9
+        Assert-WplTest ($below.Due -eq $false -and $below.Reason -eq 'below-threshold') 'Automatic cleanup ignored the threshold.'
+        $at = Test-WplMemoryAutoCleanupDue -Policy $enabled -UsedPercent 90
+        Assert-WplTest ($at.Due -eq $true -and $at.Reason -eq 'threshold-reached') 'Automatic cleanup did not trigger at the threshold.'
+        $cooling = Test-WplMemoryAutoCleanupDue -Policy $enabled -UsedPercent 95 -LastRunAt (Get-Date).AddSeconds(-5)
+        Assert-WplTest ($cooling.Due -eq $false -and $cooling.Reason -eq 'cooldown') 'Automatic cleanup ignored the cooldown.'
+        $elapsed = Test-WplMemoryAutoCleanupDue -Policy $enabled -UsedPercent 95 -LastRunAt (Get-Date).AddSeconds(-45)
+        Assert-WplTest ($elapsed.Due -eq $true) 'Automatic cleanup stayed blocked after the cooldown elapsed.'
+        $unknown = Test-WplMemoryAutoCleanupDue -Policy $enabled -UsedPercent $null
+        Assert-WplTest ($unknown.Due -eq $false -and $unknown.Reason -eq 'unknown-usage') 'An unavailable usage reading must not trigger cleanup.'
+        $off = Test-WplMemoryAutoCleanupDue -Policy $defaults -UsedPercent 99
+        Assert-WplTest ($off.Due -eq $false -and $off.Reason -eq 'disabled') 'A disabled policy triggered a cleanup.'
+    }
+
+    It 'keeps the automatic preference portable and survives a write' {
+        $modulePath = Join-Path $root 'src\WinPortableLab.Memory.psm1'
+        Import-Module $modulePath -Force
+        $store = Join-Path $TestDrive 'memory-auto-cleanup.json'
+        $policy = Get-WplMemoryAutoCleanupPolicy -Path $store
+        $policy.Enabled = $true
+        $policy.ThresholdPercent = 1000
+        $policy.CooldownSeconds = 0
+        $policy.IntervalSeconds = 99999
+        $saved = Set-WplMemoryAutoCleanupPolicy -Path $store -Policy $policy
+        Assert-WplTest ($saved.ThresholdPercent -eq 99) 'The threshold was not clamped to its upper bound.'
+        Assert-WplTest ($saved.CooldownSeconds -eq 5) 'The cooldown was not clamped to its lower bound.'
+        Assert-WplTest ($saved.IntervalSeconds -eq 3600) 'The interval was not clamped to its upper bound.'
+        Assert-WplTest ((Get-WplMemoryAutoCleanupPolicy -Path $store).Enabled -eq $true) 'The enabled flag did not round-trip.'
+        # A settings file written by an older build has no section, and strict mode
+        # made that read throw once, so both fall back and preservation are asserted.
+        $settings = Join-Path $TestDrive 'settings.json'
+        '{ "language": "ko", "recommendationOnly": true }' | Set-Content -LiteralPath $settings -Encoding utf8
+        $read = Get-WplMemoryAutoCleanupPolicy -Path $settings
+        Assert-WplTest ($read.Enabled -eq $false -and $read.ThresholdPercent -eq 90) 'A settings file without the section did not fall back to the defaults.'
+        [void](Set-WplMemoryAutoCleanupPolicy -Path $settings -Policy $read)
+        $after = Get-Content -LiteralPath $settings -Raw | ConvertFrom-Json
+        Assert-WplTest (@($after.PSObject.Properties.Name) -contains 'language') 'Writing the preference dropped an unrelated setting.'
+    }
+
+    It 'confines registry writes to the single removable startup entry' {
+        $files = @(Get-ChildItem -LiteralPath (Join-Path $root 'scripts') -Filter '*.ps1' -File) +
+            @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -Include '*.ps1','*.psm1' -File -Recurse) +
+            @(Get-Item -LiteralPath (Join-Path $root 'WinPortableLab.ps1'))
+        $writers = @()
+        foreach ($file in $files) {
+            $source = Get-Content -LiteralPath $file.FullName -Raw
+            if ($source -match 'Set-ItemProperty|New-ItemProperty|Remove-ItemProperty') { $writers += $file.Name }
+        }
+        Assert-WplTest (((($writers | Sort-Object -Unique) -join ',') -eq 'Set-WplStartup.ps1')) "Registry writers other than the startup entry: $($writers -join ', ')"
+        $startup = Get-Content -LiteralPath (Join-Path $root 'scripts\Set-WplStartup.ps1') -Raw
+        Assert-WplTest ($startup -match 'HKCU:') 'The startup entry does not target HKCU.'
+        Assert-WplTest ($startup -notmatch 'HKLM|HKEY_LOCAL_MACHINE') 'The startup entry must never touch a machine-wide key.'
+        Assert-WplTest ($startup.Contains('CurrentVersion\Run')) 'The startup entry does not use the per-user Run key.'
+        Assert-WplTest ($startup -match 'Remove-ItemProperty') 'The startup entry cannot be removed again.'
+        Assert-WplTest ($startup -match "ValidateSet\('status','register','unregister'\)") 'The startup script lacks register and unregister separation.'
+        $ignore = Get-Content -LiteralPath (Join-Path $root '.gitignore') -Raw
+        Assert-WplTest ($ignore.Contains('config/memory-auto-cleanup.json')) 'The local preference file is not kept out of version control.'
+    }
+
+    It 'wires the automatic cleanup surface, tray and startup switch into the GUI' {
+        $source = Get-Content -LiteralPath (Join-Path $root 'WinPortableLab.ps1') -Raw
+        foreach ($name in @('MemoryAutoSurface','MemoryAutoEnable','MemoryAutoThresholdBox','MemoryAutoCooldownBox','MemoryAutoIntervalBox','MemoryAutoStartup','MemoryAutoSaveButton','MemoryAutoStatusText')) {
+            Assert-WplTest ($source -match ('x:Name="' + $name + '"')) "The GUI has no $name element."
+        }
+        Assert-WplTest ($source -match 'GuiMemoryAutoTimer') 'The resident monitoring timer is missing.'
+        Assert-WplTest ($source -match 'System\.Windows\.Forms\.NotifyIcon') 'The tray icon is missing.'
+        Assert-WplTest ($source -match '\[switch\]\$StartMinimized') 'The GUI has no minimised start switch.'
+        Assert-WplTest ($source -match "Action -eq 'memory-auto'") 'The automatic cleanup action is not dispatched.'
+        Assert-WplTest ($source -match 'Set-WplStartup\.ps1') 'The GUI cannot change the startup entry.'
+        Assert-WplTest ($source -match 'Invoke-WplMemoryAutoCleanup') 'The monitor never invokes the automatic cleanup.'
+    }
+
 }

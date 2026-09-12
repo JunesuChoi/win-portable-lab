@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-    [ValidateSet('gui','check','list','launch','launch-recommended','menu','validate','memory')]
+    [ValidateSet('gui','check','list','launch','launch-recommended','menu','validate','memory','memory-auto')]
     [string]$Action = 'gui',
     [ValidateSet('quick','standard','deep','storage','gpu','memory','all')]
     [string]$Profile = 'quick',
@@ -14,6 +14,7 @@ param(
     [ValidateSet('ko','en','auto')]
     [string]$Language = 'auto',
     [switch]$NoElevation,
+    [switch]$StartMinimized,
     [switch]$FastRecommendation,
     [string]$ElevationPayload,
     [switch]$Json
@@ -39,6 +40,7 @@ if ($ElevationPayload) {
         $InstallMissing = [bool]$payload.InstallMissing
         $FastRecommendation = [bool]$payload.FastRecommendation
         $Language = [string]$payload.Language
+        $StartMinimized = [bool]$payload.StartMinimized
     }
     catch { throw "Invalid elevation payload: $($_.Exception.Message)" }
 }
@@ -51,11 +53,12 @@ function Test-WplCurrentAdministrator {
 }
 
 $Language = Resolve-WplLanguage -Root $Root -Requested $Language
-if (-not $NoElevation -and -not ($Action -eq 'memory' -and $Report) -and -not (Test-WplCurrentAdministrator)) {
+if (-not $NoElevation -and -not ($Action -in @('memory','memory-auto') -and $Report) -and -not (Test-WplCurrentAdministrator)) {
     $payload = [ordered]@{
         Action=$Action;Profile=$Profile;ToolId=@($ToolId);Area=@($Area);ProcessId=@($ProcessId);Report=[bool]$Report;Json=[bool]$Json;AcknowledgeRisk=[bool]$AcknowledgeRisk
         AcknowledgeManualTemperatureMonitoring=[bool]$AcknowledgeManualTemperatureMonitoring
         InstallMissing=[bool]$InstallMissing;FastRecommendation=[bool]$FastRecommendation;Language=$Language
+        StartMinimized=[bool]$StartMinimized
     }
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress -Depth 4)))
     $hostExecutable = (Get-Process -Id $PID).Path
@@ -1713,14 +1716,14 @@ function Show-WplGui {
         [xml]$memoryXaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="760" Height="700" MinWidth="620" MinHeight="560"
+        Width="780" Height="900" MinWidth="640" MinHeight="660"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Canvas}" Foreground="{DynamicResource Ink}"
         FontFamily="Segoe UI" SizeToContent="Manual">
   <Grid Margin="18">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
     <TextBlock x:Name="MemoryWindowTitle" Grid.Row="0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
     <TextBlock x:Name="MemoryWindowIntro" Grid.Row="1" FontSize="11" LineHeight="17" TextWrapping="Wrap" Margin="0,8,0,0"/>
@@ -1747,17 +1750,38 @@ function Show-WplGui {
       <TextBlock x:Name="MemorySummaryCapturedLabel" Grid.Row="3" Grid.Column="2" Margin="0,0,8,0"/>
       <TextBlock x:Name="MemorySummaryCapturedValue" Grid.Row="3" Grid.Column="3" Margin="0"/>
     </Grid>
-    <Border x:Name="MemoryAreaSurface" Grid.Row="4" CornerRadius="8" Padding="12" Margin="0,14,0,0">
-      <ScrollViewer x:Name="MemoryAreaScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+    <Border x:Name="MemoryAutoSurface" Grid.Row="4" CornerRadius="8" Padding="12" Margin="0,12,0,0">
+      <StackPanel x:Name="MemoryAutoPanel">
+        <TextBlock x:Name="MemoryAutoTitle" FontSize="12" FontWeight="SemiBold"/>
+        <TextBlock x:Name="MemoryAutoIntro" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+        <CheckBox x:Name="MemoryAutoEnable" FontSize="11" Margin="0,10,0,0" VerticalContentAlignment="Center"/>
+        <Grid Margin="0,8,0,0">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="72"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="72"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="72"/></Grid.ColumnDefinitions>
+          <TextBlock x:Name="MemoryAutoThresholdLabel" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <TextBox x:Name="MemoryAutoThresholdBox" Grid.Column="1" Height="26" Margin="0,0,14,0"/>
+          <TextBlock x:Name="MemoryAutoCooldownLabel" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <TextBox x:Name="MemoryAutoCooldownBox" Grid.Column="3" Height="26" Margin="0,0,14,0"/>
+          <TextBlock x:Name="MemoryAutoIntervalLabel" Grid.Column="4" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <TextBox x:Name="MemoryAutoIntervalBox" Grid.Column="5" Height="26"/>
+        </Grid>
+        <CheckBox x:Name="MemoryAutoStartup" FontSize="11" Margin="0,10,0,0" VerticalContentAlignment="Center"/>
+        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+          <Button x:Name="MemoryAutoSaveButton" Height="28" MinWidth="180" Margin="0,0,10,0"/>
+          <TextBlock x:Name="MemoryAutoStatusText" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+    <Border x:Name="MemoryAreaSurface" Grid.Row="5" CornerRadius="8" Padding="12" Margin="0,14,0,0">
+      <ScrollViewer x:Name="MemoryAreaScroll" MinHeight="150" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
         <StackPanel x:Name="MemoryAreaList" Margin="0,0,6,0"/>
       </ScrollViewer>
     </Border>
-    <Border x:Name="MemoryResultSurface" Grid.Row="5" CornerRadius="8" Padding="12" Margin="0,12,0,0">
-      <ScrollViewer x:Name="MemoryResultScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+    <Border x:Name="MemoryResultSurface" Grid.Row="6" CornerRadius="8" Padding="12" Margin="0,12,0,0">
+      <ScrollViewer x:Name="MemoryResultScroll" MaxHeight="170" MinHeight="90" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
         <TextBlock x:Name="MemoryResultText" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" LineHeight="17"/>
       </ScrollViewer>
     </Border>
-    <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+    <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
       <Button x:Name="MemoryRunButton" Height="30" MinWidth="120" Margin="0,0,8,0"/>
       <Button x:Name="MemoryRefreshButton" Height="30" MinWidth="90" Margin="0,0,8,0"/>
       <Button x:Name="MemoryElevateButton" Height="30" MinWidth="150" Margin="0,0,8,0"/>
@@ -1875,6 +1899,98 @@ function Show-WplGui {
             $resultText.Text = Get-WplText -Key GuiMemoryCleanNeedsAdmin -Language $script:GuiLanguage
             $resultText.Foreground = $window.TryFindResource('Caution')
         }
+        # Automatic cleanup. The preference is stored in the portable configuration
+        # file, so an enabled plan never writes to the host registry. Only the
+        # optional startup entry touches it, and that is one removable HKCU value.
+        $autoPolicyPath = Join-Path $Root 'config\memory-auto-cleanup.json'
+        $autoSurface = $memoryWindow.FindName('MemoryAutoSurface')
+        $autoSurface.Background = $window.TryFindResource('Surface1')
+        $autoTitle = $memoryWindow.FindName('MemoryAutoTitle')
+        $autoTitle.Text = Get-WplText -Key GuiMemoryAutoTitle -Language $script:GuiLanguage
+        $autoTitle.Foreground = $window.TryFindResource('Ink')
+        $autoIntro = $memoryWindow.FindName('MemoryAutoIntro')
+        $autoIntro.Text = Get-WplText -Key GuiMemoryAutoIntro -Language $script:GuiLanguage
+        $autoIntro.Foreground = $window.TryFindResource('InkSubtle')
+        $autoEnable = $memoryWindow.FindName('MemoryAutoEnable')
+        $autoEnable.Content = Get-WplText -Key GuiMemoryAutoEnable -Language $script:GuiLanguage
+        $autoEnable.Foreground = $window.TryFindResource('InkMuted')
+        $autoStartup = $memoryWindow.FindName('MemoryAutoStartup')
+        $autoStartup.Content = Get-WplText -Key GuiMemoryAutoStartup -Language $script:GuiLanguage
+        $autoStartup.Foreground = $window.TryFindResource('InkMuted')
+        $autoThresholdBox = $memoryWindow.FindName('MemoryAutoThresholdBox')
+        $autoCooldownBox = $memoryWindow.FindName('MemoryAutoCooldownBox')
+        $autoIntervalBox = $memoryWindow.FindName('MemoryAutoIntervalBox')
+        foreach ($name in @('MemoryAutoThresholdBox','MemoryAutoCooldownBox','MemoryAutoIntervalBox')) {
+            $box = $memoryWindow.FindName($name)
+            $box.Background = $window.TryFindResource('Surface2')
+            $box.Foreground = $window.TryFindResource('Ink')
+            $box.BorderBrush = $window.TryFindResource('Hairline')
+        }
+        $autoLabels = @{ MemoryAutoThresholdLabel='GuiMemoryAutoThreshold'; MemoryAutoCooldownLabel='GuiMemoryAutoCooldown'; MemoryAutoIntervalLabel='GuiMemoryAutoInterval' }
+        foreach ($name in $autoLabels.Keys) {
+            $label = $memoryWindow.FindName($name)
+            $label.Text = Get-WplText -Key $autoLabels[$name] -Language $script:GuiLanguage
+            $label.Foreground = $window.TryFindResource('InkTertiary')
+        }
+        $autoStatusText = $memoryWindow.FindName('MemoryAutoStatusText')
+        $autoStatusText.Foreground = $window.TryFindResource('InkSubtle')
+        $autoSave = $memoryWindow.FindName('MemoryAutoSaveButton')
+        $autoSave.Content = Get-WplText -Key GuiMemoryAutoSave -Language $script:GuiLanguage
+        $autoSave.Style = $window.TryFindResource('ActionButton')
+
+        $startupScript = Join-Path $Root 'scripts\Set-WplStartup.ps1'
+        $loadAutoPolicy = {
+            $policy = Get-WplMemoryAutoCleanupPolicy -Path $autoPolicyPath
+            $autoEnable.IsChecked = [bool]$policy.Enabled
+            $autoThresholdBox.Text = [string]$policy.ThresholdPercent
+            $autoCooldownBox.Text = [string]$policy.CooldownSeconds
+            $autoIntervalBox.Text = [string]$policy.IntervalSeconds
+            $registered = $false
+            try { $registered = [bool](& $startupScript -Root $Root -Action status -Language $script:GuiLanguage | Select-Object -Last 1).Registered } catch { $registered = $false }
+            $autoStartup.IsChecked = $registered
+        }
+        $refreshAutoStatus = {
+            $policy = Get-WplMemoryAutoCleanupPolicy -Path $autoPolicyPath
+            $snapshot = Get-WplMemorySnapshot
+            if (-not $policy.Enabled) {
+                $autoStatusText.Text = Get-WplText -Key GuiMemoryAutoStateOff -Language $script:GuiLanguage
+                $autoStatusText.Foreground = $window.TryFindResource('InkSubtle')
+                return
+            }
+            $used = if ($null -eq $snapshot.UsedPercent) { Get-WplText -Key MemoryUnavailable -Language $script:GuiLanguage } else { '{0:N2}' -f [double]$snapshot.UsedPercent }
+            $line = Get-WplText -Key GuiMemoryAutoStateOn -Language $script:GuiLanguage -ArgumentList @($policy.ThresholdPercent,$used)
+            if ($script:GuiIsAdministrator) {
+                $autoStatusText.Text = $line
+                $autoStatusText.Foreground = $window.TryFindResource('Ok')
+            }
+            else {
+                # A resident window without administrator rights can only watch, so
+                # say so instead of failing the moment the threshold is reached.
+                $autoStatusText.Text = $line + ' ' + (Get-WplText -Key GuiMemoryAutoNeedsAdmin -Language $script:GuiLanguage)
+                $autoStatusText.Foreground = $window.TryFindResource('Caution')
+            }
+        }
+        $autoSave.Add_Click({
+            try {
+                $policy = Get-WplMemoryAutoCleanupPolicy -Path $autoPolicyPath
+                $policy.Enabled = $autoEnable.IsChecked -eq $true
+                $policy.ThresholdPercent = $autoThresholdBox.Text
+                $policy.CooldownSeconds = $autoCooldownBox.Text
+                $policy.IntervalSeconds = $autoIntervalBox.Text
+                $saved = Set-WplMemoryAutoCleanupPolicy -Path $autoPolicyPath -Policy $policy
+                $wanted = $autoStartup.IsChecked -eq $true
+                & $startupScript -Root $Root -Action $(if ($wanted) { 'register' } else { 'unregister' }) -Language $script:GuiLanguage | Out-Null
+                $autoStatusText.Foreground = $window.TryFindResource('Ok')
+                $autoStatusText.Text = Get-WplText -Key GuiMemoryAutoSaved -Language $script:GuiLanguage -ArgumentList @($saved.ThresholdPercent,$saved.CooldownSeconds,$saved.IntervalSeconds)
+            }
+            catch {
+                $autoStatusText.Foreground = $window.TryFindResource('Danger')
+                $autoStatusText.Text = Get-WplText -Key GuiMemoryAutoSaveFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+            }
+        })
+        & $loadAutoPolicy
+        & $refreshAutoStatus
+
 
         $refresh.Add_Click({ & $refreshMemory })
         $run.Add_Click({
@@ -2712,13 +2828,92 @@ function Show-WplGui {
             $ui.StatusText.Text = Get-WplText -Key GuiMemoryCleanFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
         }
     })
+    # Automatic cleanup monitoring. It lives with the main window so an enabled
+    # plan keeps watching after the memory window closes, and it re-reads the
+    # policy each tick so a saved change takes effect without a restart.
+    $script:GuiMemoryAutoPath = Join-Path $Root 'config\memory-auto-cleanup.json'
+    $script:GuiMemoryStatsPath = Join-Path $Root 'logs\memory-cleanup-stats.json'
+    $script:GuiMemoryAutoBusy = $false
+    $script:GuiMemoryAutoTimer = New-Object Windows.Threading.DispatcherTimer
+    $script:GuiMemoryAutoTimer.Interval = [TimeSpan]::FromSeconds(30)
+    $script:GuiMemoryAutoTimer.Add_Tick({
+        $policy = Get-WplMemoryAutoCleanupPolicy -Path $script:GuiMemoryAutoPath
+        if (-not $policy.Enabled) { return }
+        $wanted = [TimeSpan]::FromSeconds([Math]::Max(5,[int]$policy.IntervalSeconds))
+        if ($script:GuiMemoryAutoTimer.Interval -ne $wanted) { $script:GuiMemoryAutoTimer.Interval = $wanted }
+        if ($script:GuiMemoryAutoBusy) { return }
+        $snapshot = Get-WplMemorySnapshot
+        $statistics = Get-WplMemoryCleanupStatistics -Path $script:GuiMemoryStatsPath
+        $lastRun = if ($statistics) { $statistics.lastCleanupAt } else { $null }
+        $due = Test-WplMemoryAutoCleanupDue -Policy $policy -UsedPercent $snapshot.UsedPercent -LastRunAt $lastRun
+        if (-not $due.Due) { return }
+        if (-not $script:GuiIsAdministrator) {
+            # A resident window without administrator rights can only watch, so
+            # report the reason instead of throwing on every tick.
+            $ui.StatusText.Text = Get-WplText -Key GuiMemoryAutoNeedsAdmin -Language $script:GuiLanguage
+            return
+        }
+        $script:GuiMemoryAutoBusy = $true
+        try {
+            $outcome = Invoke-WplMemoryAutoCleanup -Policy $policy -StatsPath $script:GuiMemoryStatsPath
+            if ($outcome.Performed) {
+                $delta = if ($null -eq $outcome.Cleanup.DeltaBytes) { Get-WplText -Key MemoryUnavailable -Language $script:GuiLanguage } else { '{0:N2} MB' -f ([double]$outcome.Cleanup.DeltaBytes / 1MB) }
+                $ui.StatusText.Text = Get-WplText -Key GuiMemoryAutoRan -Language $script:GuiLanguage -ArgumentList @($delta,$policy.ThresholdPercent)
+            }
+        }
+        catch {
+            $ui.StatusText.Text = Get-WplText -Key GuiMemoryCleanFailed -Language $script:GuiLanguage -ArgumentList @($_.Exception.Message)
+        }
+        finally { $script:GuiMemoryAutoBusy = $false }
+    })
+
+    # A resident instance started at logon stays out of the way, so the tray icon
+    # is the way back in. WinForms is optional, so a host without it still runs.
+    $script:GuiTrayIcon = $null
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+        $tray = New-Object System.Windows.Forms.NotifyIcon
+        $tray.Icon = [System.Drawing.SystemIcons]::Application
+        $tray.Text = Get-WplText -Key GuiMemoryTrayTooltip -Language $script:GuiLanguage
+        $trayMenu = New-Object System.Windows.Forms.ContextMenuStrip
+        $showWindow = { $window.Show(); if ($window.WindowState -eq 'Minimized') { $window.WindowState = 'Normal' }; $window.Activate() }
+        $openItem = $trayMenu.Items.Add((Get-WplText -Key GuiMemoryTrayOpen -Language $script:GuiLanguage))
+        $openItem.Add_Click($showWindow)
+        $cleanItem = $trayMenu.Items.Add((Get-WplText -Key GuiMemoryTrayClean -Language $script:GuiLanguage))
+        $cleanItem.Add_Click({ try { Show-GuiMemoryClean } catch { } })
+        $toggleItem = $trayMenu.Items.Add((Get-WplText -Key GuiMemoryTrayToggle -Language $script:GuiLanguage))
+        $toggleItem.Add_Click({
+            $policy = Get-WplMemoryAutoCleanupPolicy -Path $script:GuiMemoryAutoPath
+            $policy.Enabled = -not $policy.Enabled
+            [void](Set-WplMemoryAutoCleanupPolicy -Path $script:GuiMemoryAutoPath -Policy $policy)
+            $ui.StatusText.Text = Get-WplText -Key $(if ($policy.Enabled) { 'GuiMemoryAutoToggledOn' } else { 'GuiMemoryAutoToggledOff' }) -Language $script:GuiLanguage
+        })
+        $exitItem = $trayMenu.Items.Add((Get-WplText -Key GuiMemoryTrayExit -Language $script:GuiLanguage))
+        $exitItem.Add_Click({ $window.Close() })
+        $tray.ContextMenuStrip = $trayMenu
+        $tray.Add_DoubleClick($showWindow)
+        $tray.Visible = $true
+        $script:GuiTrayIcon = $tray
+    }
+    catch { $script:GuiTrayIcon = $null }
+    $script:GuiMemoryAutoTimer.Start()
+
     $window.Add_Loaded({
+        if ($StartMinimized) {
+            # A logon start keeps the window off the taskbar and reachable from the tray.
+            $window.ShowInTaskbar = $false
+            $window.WindowState = 'Minimized'
+            $window.Hide()
+        }
         if ($script:GuiInitialAnalysisStarted) { return }
         $script:GuiInitialAnalysisStarted = $true
         Start-GuiAnalysis $Profile
     })
     $window.Add_Closed({
         $timer.Stop()
+        if ($script:GuiMemoryAutoTimer) { $script:GuiMemoryAutoTimer.Stop() }
+        if ($script:GuiTrayIcon) { $script:GuiTrayIcon.Visible = $false; $script:GuiTrayIcon.Dispose(); $script:GuiTrayIcon = $null }
         if ($script:GuiJob -and $script:GuiJob.State -in @('NotStarted','Running')) { Stop-Job -Job $script:GuiJob -ErrorAction SilentlyContinue }
         if ($script:GuiJob) { Remove-Job -Job $script:GuiJob -Force -ErrorAction SilentlyContinue }
         if ($script:GuiInstallers) {
@@ -2761,6 +2956,38 @@ function Show-WplGui {
 if ($Action -eq 'gui') {
     Show-WplGui
     return
+}
+
+if ($Action -eq 'memory-auto') {
+    # Console equivalent of the resident monitor: read the saved policy and act
+    # only when the threshold, cooldown and interval rules all allow it.
+    $policyPath = Join-Path $Root 'config\memory-auto-cleanup.json'
+    $policy = Get-WplMemoryAutoCleanupPolicy -Path $policyPath
+    if ($Area) { $policy.Areas = @($Area) }
+    $outcome = Invoke-WplMemoryAutoCleanup -Policy $policy -StatsPath (Join-Path $Root 'logs\memory-cleanup-stats.json') -Report:$Report
+    if ($Json) { $outcome | ConvertTo-Json -Depth 12; exit 0 }
+    if ($outcome.ReportOnly) {
+        Write-Host (Get-WplText -Key MemoryReportReady -Language $Language -ArgumentList @((@($outcome.Requested) -join ', '))) -ForegroundColor Cyan
+    }
+    elseif (-not $outcome.Performed) {
+        $reasonKey = switch ([string]$outcome.Reason) {
+            'below-threshold' { 'GuiMemoryAutoReasonBelowThreshold' }
+            'cooldown' { 'GuiMemoryAutoReasonCooldown' }
+            'unknown-usage' { 'GuiMemoryAutoReasonUnknownUsage' }
+            'threshold-reached' { 'GuiMemoryAutoReasonThresholdReached' }
+            default { 'GuiMemoryAutoReasonDisabled' }
+        }
+        Write-Host (Get-WplText -Key GuiMemoryAutoIdle -Language $Language -ArgumentList @((Get-WplText -Key $reasonKey -Language $Language))) -ForegroundColor DarkGray
+    }
+    else {
+        $deltaText = if ($null -eq $outcome.Cleanup.DeltaBytes) { Get-WplText -Key MemoryUnavailable -Language $Language } else { '{0:N2} MB' -f ([double]$outcome.Cleanup.DeltaBytes / 1MB) }
+        Write-Host (Get-WplText -Key GuiMemoryAutoRan -Language $Language -ArgumentList @($deltaText,$policy.ThresholdPercent)) -ForegroundColor Green
+        foreach ($entry in @($outcome.Cleanup.Results)) {
+            $tone = if ($entry.Success) { 'Green' } elseif ($entry.Skipped) { 'Yellow' } else { 'Red' }
+            Write-Host ('[{0}] {1}: {2}' -f $entry.Id,$entry.StatusHex,$entry.Message) -ForegroundColor $tone
+        }
+    }
+    exit 0
 }
 
 if ($Action -eq 'memory') {

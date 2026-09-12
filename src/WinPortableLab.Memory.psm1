@@ -602,6 +602,149 @@ function Update-WplMemoryCleanupStatistics([string]$Path,[object]$DeltaBytes,[ob
     return $record
 }
 
+function Get-WplMemoryBoundedInt([object]$Value,[int]$Default,[int]$Minimum,[int]$Maximum) {
+    $number = $Default
+    if ($null -ne $Value) { try { $number = [int]$Value } catch { $number = $Default } }
+    # Compared rather than clamped with Math.Min/Max so the module keeps its
+    # absolute ban on Int32-sensitive Math calls in this file.
+    if ($number -lt $Minimum) { $number = $Minimum }
+    if ($number -gt $Maximum) { $number = $Maximum }
+    return $number
+}
+
+function Get-WplMemoryMember([object]$Object,[string]$Name) {
+    # Strict mode turns a missing property into a terminating error, so optional
+    # members are read through this guard. A settings file written by an older
+    # build keeps loading instead of failing the whole policy read.
+    if ($null -eq $Object) { return $null }
+    if ($Object.PSObject.Properties.Name -notcontains $Name) { return $null }
+    return $Object.$Name
+}
+
+function Get-WplMemoryAutoCleanupPolicy {
+    <#
+        Mem Reduct keeps its automatic reduction beside the manual mask with
+        DEFAULT_AUTOREDUCT_VAL (90 percent), AUTOREDUCT_COOLDOWN (30 seconds)
+        and DEFAULT_AUTOREDUCTINTERVAL_VAL (30 seconds). The same three values
+        are the defaults here. The preference is stored in the portable
+        configuration file, so an enabled automatic plan still leaves nothing
+        behind on the host machine.
+    #>
+    param([string]$Path)
+
+    $policy = [pscustomobject][ordered]@{
+        Enabled = $false
+        ThresholdPercent = 90
+        CooldownSeconds = 30
+        IntervalSeconds = 30
+        Areas = @(Resolve-WplMemoryAreaIds @('Combined'))
+        StartWithWindows = $false
+    }
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $policy }
+    try { $store = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json } catch { return $policy }
+    $saved = Get-WplMemoryMember -Object $store -Name 'memoryAutoCleanup'
+    if (-not $saved) { return $policy }
+
+    $policy.Enabled = [bool](Get-WplMemoryMember -Object $saved -Name 'enabled')
+    $policy.StartWithWindows = [bool](Get-WplMemoryMember -Object $saved -Name 'startWithWindows')
+    $policy.ThresholdPercent = Get-WplMemoryBoundedInt -Value (Get-WplMemoryMember -Object $saved -Name 'thresholdPercent') -Default 90 -Minimum 50 -Maximum 99
+    $policy.CooldownSeconds = Get-WplMemoryBoundedInt -Value (Get-WplMemoryMember -Object $saved -Name 'cooldownSeconds') -Default 30 -Minimum 5 -Maximum 3600
+    $policy.IntervalSeconds = Get-WplMemoryBoundedInt -Value (Get-WplMemoryMember -Object $saved -Name 'intervalSeconds') -Default 30 -Minimum 5 -Maximum 3600
+    $areas = @()
+    foreach ($area in @(Get-WplMemoryMember -Object $saved -Name 'areas')) { if ($area) { $areas += ([string]$area).Trim() } }
+    if ($areas.Count) {
+        try { $policy.Areas = @(Resolve-WplMemoryAreaIds $areas) }
+        catch { $policy.Areas = @(Resolve-WplMemoryAreaIds @('Combined')) }
+    }
+    return $policy
+}
+
+function Set-WplMemoryAutoCleanupPolicy {
+    # Only the memoryAutoCleanup member is replaced; every other setting in the
+    # file (language and recommendation preferences) survives the write.
+    param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][object]$Policy)
+
+    $store = [ordered]@{}
+    if (Test-Path -LiteralPath $Path -PathType Leaf) {
+        try {
+            $existing = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+            if ($existing) {
+                foreach ($property in $existing.PSObject.Properties) {
+                    if ($property.Name -ne 'memoryAutoCleanup') { $store[$property.Name] = $property.Value }
+                }
+            }
+        }
+        catch { }
+    }
+    $store['memoryAutoCleanup'] = [ordered]@{
+        enabled = [bool](Get-WplMemoryMember -Object $Policy -Name 'Enabled')
+        thresholdPercent = Get-WplMemoryBoundedInt -Value (Get-WplMemoryMember -Object $Policy -Name 'ThresholdPercent') -Default 90 -Minimum 50 -Maximum 99
+        cooldownSeconds = Get-WplMemoryBoundedInt -Value (Get-WplMemoryMember -Object $Policy -Name 'CooldownSeconds') -Default 30 -Minimum 5 -Maximum 3600
+        intervalSeconds = Get-WplMemoryBoundedInt -Value (Get-WplMemoryMember -Object $Policy -Name 'IntervalSeconds') -Default 30 -Minimum 5 -Maximum 3600
+        areas = @(Get-WplMemoryMember -Object $Policy -Name 'Areas')
+        startWithWindows = [bool](Get-WplMemoryMember -Object $Policy -Name 'StartWithWindows')
+    }
+    $directory = Split-Path -Path $Path -Parent
+    if ($directory -and -not (Test-Path -LiteralPath $directory -PathType Container)) { New-Item -ItemType Directory -Path $directory -Force | Out-Null }
+    $store | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $Path -Encoding utf8
+    return (Get-WplMemoryAutoCleanupPolicy -Path $Path)
+}
+
+function Test-WplMemoryAutoCleanupDue {
+    # Pure decision so the threshold, cooldown and interval rules can be
+    # exercised without touching live memory. The cooldown is measured against
+    # the persisted last-cleanup timestamp, so it survives a restart.
+    param([object]$Policy,[object]$UsedPercent,[object]$LastRunAt,[object]$Now)
+
+    $result = [pscustomobject][ordered]@{ Due=$false; Reason='disabled'; UsedPercent=$UsedPercent; ThresholdPercent=$null; CooldownSeconds=$null }
+    if (-not $Policy -or -not [bool](Get-WplMemoryMember -Object $Policy -Name 'Enabled')) { return $result }
+    $result.ThresholdPercent = Get-WplMemoryBoundedInt -Value (Get-WplMemoryMember -Object $Policy -Name 'ThresholdPercent') -Default 90 -Minimum 50 -Maximum 99
+    $result.CooldownSeconds = Get-WplMemoryBoundedInt -Value (Get-WplMemoryMember -Object $Policy -Name 'CooldownSeconds') -Default 30 -Minimum 5 -Maximum 3600
+    if ($null -eq $UsedPercent) { $result.Reason = 'unknown-usage'; return $result }
+    $used = 0.0
+    try { $used = [double]$UsedPercent } catch { $result.Reason = 'unknown-usage'; return $result }
+    if ($used -lt $result.ThresholdPercent) { $result.Reason = 'below-threshold'; return $result }
+    $moment = if ($Now) { [datetime]$Now } else { Get-Date }
+    $previous = $null
+    if ($LastRunAt) { try { $previous = [datetime]$LastRunAt } catch { $previous = $null } }
+    if ($previous -and ($moment - $previous).TotalSeconds -lt $result.CooldownSeconds) { $result.Reason = 'cooldown'; return $result }
+    $result.Due = $true
+    $result.Reason = 'threshold-reached'
+    return $result
+}
+
+function Invoke-WplMemoryAutoCleanup {
+    param([object]$Policy,[string]$StatsPath,[switch]$Report)
+
+    if (-not $Policy) { $Policy = Get-WplMemoryAutoCleanupPolicy }
+    $snapshot = Get-WplMemorySnapshot
+    $statistics = if ($StatsPath) { Get-WplMemoryCleanupStatistics -Path $StatsPath } else { $null }
+    $lastRun = Get-WplMemoryMember -Object $statistics -Name 'lastCleanupAt'
+    $due = Test-WplMemoryAutoCleanupDue -Policy $Policy -UsedPercent $snapshot.UsedPercent -LastRunAt $lastRun
+    $planAreas = @(Get-WplMemoryMember -Object $Policy -Name 'Areas')
+    $summary = [ordered]@{
+        Requested = $planAreas
+        Performed = $false
+        ReportOnly = [bool]$Report
+        Reason = $due.Reason
+        UsedPercent = $snapshot.UsedPercent
+        ThresholdPercent = $due.ThresholdPercent
+        CooldownSeconds = $due.CooldownSeconds
+        Snapshot = $snapshot
+        Cleanup = $null
+    }
+    if (-not $due.Due) { return [pscustomobject]$summary }
+    # The two freeze regions stay outside the default plan. An automatic plan
+    # that points at them still needs the explicit acknowledgement, so the
+    # resident path can never silently discard reclaimable pages.
+    $freezeIds = @(Get-WplMemoryCleanupArea | Where-Object { $_.RecordOnly } | ForEach-Object Id)
+    $freezeSelected = @($planAreas | Where-Object { $freezeIds -contains $_ })
+    if ($freezeSelected.Count -gt 0) { throw ('Automatic cleanup cannot use the opt-in freeze regions: {0}.' -f ($freezeSelected -join ', ')) }
+    $summary.Cleanup = Clear-WplSystemMemory -Area $planAreas -Report:$Report -StatsPath $StatsPath
+    $summary.Performed = -not [bool]$Report
+    return [pscustomobject]$summary
+}
+
 function Clear-WplSystemMemory {
     [CmdletBinding()]
     param(
@@ -677,4 +820,4 @@ function Clear-WplSystemMemory {
     [pscustomobject][ordered]@{ Requested=$requested; Performed=@($performed); ReportOnly=$false; Before=$before; After=$after; DeltaBytes=$delta; Results=@($results); Statistics=$statistics }
 }
 
-Export-ModuleMember -Function Get-WplMemorySnapshot,Get-WplMemoryCleanupArea,Test-WplMemoryCleanupSupport,Get-WplMemoryCleanupStatistics,Clear-WplSystemMemory
+Export-ModuleMember -Function Get-WplMemorySnapshot,Get-WplMemoryCleanupArea,Test-WplMemoryCleanupSupport,Get-WplMemoryCleanupStatistics,Get-WplMemoryAutoCleanupPolicy,Set-WplMemoryAutoCleanupPolicy,Test-WplMemoryAutoCleanupDue,Invoke-WplMemoryAutoCleanup,Clear-WplSystemMemory

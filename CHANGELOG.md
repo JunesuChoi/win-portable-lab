@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reached full Mem Reduct parity with eight native cleanup regions: added volume write cache, registry cache and physical memory list merging, and made `Combined` reproduce `REDUCT_MASK_DEFAULT` exactly.
+- Added automatic memory cleanup with the Mem Reduct defaults (90 percent threshold, 30-second cooldown, 30-second check interval), stored in the portable configuration rather than a registry key.
+- Added a resident monitor with a notification-area icon, plus an optional, fully removable `HKCU` startup registration that needs no administrator rights.
 - Request administrator privileges by default while preserving an explicit `-NoElevation` limited mode.
 - Expand elevated inventory with storage topology and reliability, TPM, BitLocker status, Device Guard, signed drivers, hotfixes, page files and power-plan data.
 - Split 27 package downloads into schema-backed per-package manifests.

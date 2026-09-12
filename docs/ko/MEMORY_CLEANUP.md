@@ -25,10 +25,22 @@
 
 실행할 때마다 `logs\memory-cleanup-stats.json`에 실행 횟수, 누적 확보량, 마지막 정리 시각이 누적됩니다. MemReduct가 설정 파일에 남기는 통계와 같은 항목입니다.
 
+## 자동 정리와 상주 모니터링
+
+자동 정리는 옵트인입니다. `config\settings.json`의 `memoryAutoCleanup` 항목이 기준 사용률, 최소 간격, 확인 주기와 대상 영역을 보관하며, 기본값은 MemReduct의 자동 축소와 같은 90%·30초·30초입니다. 기준을 넘고 최소 간격이 지나면 기본 묶음만 정리합니다. 대기 목록과 수정 페이지 목록은 자동 대상에서 제외되므로, 승인 없이 재사용 가능한 페이지를 버리는 일이 없습니다.
+
+GUI의 `자동 정리 · 상주 모니터링` 영역에서 설정을 저장하거나, 같은 판정을 콘솔에서 한 번 실행할 수 있습니다.
+
+```powershell
+.\WinPortableLab.ps1 -Action memory-auto -Report -Json -Language ko
+.\WinPortableLab.ps1 -Action memory-auto -Language ko
+```
+
+`-Report`는 판정 결과만 보여주고 실제 정리는 하지 않습니다. 상주 모니터링은 GUI 창이 열려 있는 동안 동작하며, 알림 영역 아이콘에서 창 열기·지금 정리·자동 정리 켜기/끄기·종료를 할 수 있습니다. `Windows 시작 시 상주 실행 등록`을 선택하면 로그온 때 트레이로 시작합니다. 등록은 `HKCU`의 `Run` 값 하나뿐이라 관리자 권한이 필요 없고 같은 화면에서 다시 해제할 수 있습니다. 원팩이 호스트에 남기는 영구 흔적은 이 값 하나이며, 해제하면 남는 것이 없습니다.
+
 ## 하지 않는 것
 
 - `ClearPageFileAtShutdown`, `LargeSystemCache`, `DisablePagingExecutive` 같은 레지스트리 값이나 시스템 설정을 변경하지 않습니다. 레지스트리 캐시 정리는 값을 쓰지 않고 대기 중인 하이브를 디스크로 내리기만 합니다.
-- 자동 실행, 부팅 시 실행, 임계값 기반 실행, 예약 작업을 만들지 않습니다.
 - 메모리 누수 진단 도구가 아닙니다. 누수 원인은 프로세스별 추적과 장시간 관찰로 확인해야 합니다.
 - 안정성 테스트가 아닙니다. RAM 오버클럭·CPU·GPU 검증은 TestMem5, OCCT 등 별도 도구로 수행하십시오.
 - 페이지 파일 크기, 프리페치, 서비스, 전원 계획을 변경하지 않습니다.
@@ -72,9 +84,11 @@
 | 물리 메모리 목록 병합 | 지원 (`CombineMemoryLists`) | `REDUCT_COMBINEMEMORYLISTS`와 같은 `SystemCombinePhysicalMemoryInformation` 호출, 같은 Windows 10 게이트 |
 | 정리 통계 | 지원 (`logs\memory-cleanup-stats.json`) | MemReduct가 남기는 실행 횟수·누적 확보량·마지막 정리 시각과 같은 항목 |
 | 개별 프로세스 | 지원 (`EmptyWorkingSet`, `-ProcessId`) | MemReduct의 전체 정리 보완용으로 제공 |
-| 자동·예약 정리 | 의도적으로 제외 | 프로젝트 원칙상 자동 실행과 예약 작업을 만들지 않음 |
-| 트레이 아이콘·단축키·상주 모니터링 | 의도적으로 제외 | 점검할 때 열고 닫는 콘솔이며 상주하지 않음 |
-| 레지스트리 값·시스템 설정 변경 | 의도적으로 제외 | 설정 변경 없음 원칙과 범위를 지키며 레지스트리에 값을 쓰지 않음 |
+| 자동 정리 | 지원 (`memory-auto`, 기준 90%·최소 간격 30초) | MemReduct의 자동 축소와 같은 기본값. 대상은 기본 묶음으로 제한 |
+| 상주 모니터링·트레이 아이콘 | 지원 (`-StartMinimized`, 알림 영역 메뉴) | MemReduct처럼 상주하며 창을 닫아도 감시가 유지됨 |
+| Windows 시작 등록 | 지원 (`scripts\Set-WplStartup.ps1`, HKCU Run 1개) | 로그온 시 트레이로 시작. 관리자 권한 불필요, 같은 명령으로 완전 해제 |
+| 전역 단축키 | 의도적으로 제외 | 트레이 메뉴로 같은 동작을 제공하고, 상주 프로세스에 키 후크를 두지 않음 |
+| 레지스트리 값·시스템 설정 변경 | 범위 유지 | `ClearPageFileAtShutdown`·`LargeSystemCache`·`DisablePagingExecutive` 등은 쓰지 않음. 유일한 예외는 위 시작 등록 1개 |
 | 기본 마스크 | `Combined`가 `REDUCT_MASK_DEFAULT`와 동일 | 기본 6개 영역이 그대로 실행되고 freeze 2개만 선택형으로 남음 |
 | 제3자 실행 파일 | 의도적으로 제외 | MemReduct 실행 파일을 번들·다운로드하지 않고 Win32/NT API를 직접 호출 |
 | 모달 확인 창 | 의도적으로 제외 | GUI 안의 인라인 위험 확인란과 결과 표시를 사용 |

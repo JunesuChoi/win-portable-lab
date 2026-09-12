@@ -29,6 +29,10 @@ testResults.xml
 # Per-machine tool path overrides. Paths are local to one operator's machine.
 config/user-tool-paths.json
 
+# Automatic cleanup preferences. This file is runtime state created at first
+# save, so the tracked config keeps only the shipped defaults.
+config/memory-auto-cleanup.json
+
 # Internal working documents: implementation audit, roadmap, agent instructions
 # and the third-party brand analysis used while building the palette.
 AGENTS.md

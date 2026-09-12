@@ -25,10 +25,22 @@ The default `Combined` plan is the MemReduct default mask: `WorkingSet`, `System
 
 Every real run appends to `logs\memory-cleanup-stats.json`, which records the run count, the cumulative freed memory and the timestamp of the last cleanup - the same statistics MemReduct keeps in its configuration file.
 
+## Automatic cleanup and resident monitoring
+
+Automatic cleanup is opt-in. The `memoryAutoCleanup` block in `config\settings.json` stores the threshold, cooldown, check interval and target regions, and its defaults are the same 90 percent, 30 seconds and 30 seconds Mem Reduct uses for automatic reduction. Once usage crosses the threshold and the cooldown has elapsed, only the default plan runs. The standby list and the modified page list stay out of the automatic plan, so an unattended run never discards reclaimable pages without an acknowledgement.
+
+Save the preference in the `Automatic cleanup and resident monitoring` area of the GUI, or run the same decision once from the console:
+
+```powershell
+.\WinPortableLab.ps1 -Action memory-auto -Report -Json -Language en
+.\WinPortableLab.ps1 -Action memory-auto -Language en
+```
+
+`-Report` prints the decision only and performs no cleanup. Resident monitoring runs while the GUI window is open, and the notification-area icon offers open, clean now, toggle automatic cleanup and exit. Selecting `Register for Windows startup` starts the pack in the tray at logon. The registration is a single `HKCU` `Run` value, so it needs no administrator rights and the same screen removes it again. That value is the only permanent trace the pack leaves on a host, and removing it leaves nothing behind.
+
 ## What it does not do
 
 - It does not write registry values or system settings such as `ClearPageFileAtShutdown`, `LargeSystemCache` or `DisablePagingExecutive`. Flushing the registry cache writes no value; it only lowers pending hives to disk.
-- It does not run automatically, at boot, on a threshold, or through a scheduled task.
 - It is not a memory-leak diagnostic tool. Leaks require per-process tracing and observation over time.
 - It is not a stability test. Use TestMem5, OCCT and the other dedicated tools for RAM, CPU and GPU validation.
 - It does not resize the page file or change prefetch, services or power plans.
@@ -72,9 +84,11 @@ Working-set-only cleanup does not require the risk acknowledgement:
 | Combined memory lists | Supported (`CombineMemoryLists`) | Same `SystemCombinePhysicalMemoryInformation` call as `REDUCT_COMBINEMEMORYLISTS`, with the same Windows 10 gate |
 | Cleanup statistics | Supported (`logs\memory-cleanup-stats.json`) | Same run count, cumulative freed memory and last-cleanup timestamp MemReduct keeps |
 | Individual processes | Supported (`EmptyWorkingSet`, `-ProcessId`) | Adds a focused complement to the whole-system operation |
-| Automatic or scheduled cleanup | Intentionally excluded | Project rule: no automatic execution or scheduled tasks |
-| Tray icon, hotkey and resident monitoring | Intentionally excluded | The console is opened for a check and closed again instead of staying resident |
-| Registry value and system-settings changes | Intentionally excluded | Project rule: no setting changes and no registry writes |
+| Automatic cleanup | Supported (`memory-auto`, 90 percent threshold, 30-second cooldown) | Same defaults as Mem Reduct automatic reduction, limited to the default plan |
+| Resident monitoring and tray icon | Supported (`-StartMinimized`, notification-area menu) | Stays resident like Mem Reduct and keeps watching after the window is closed |
+| Windows startup registration | Supported (`scripts\Set-WplStartup.ps1`, one HKCU Run value) | Starts in the tray at logon, needs no administrator rights and removes cleanly |
+| Global hotkeys | Intentionally excluded | The tray menu offers the same actions without installing a keyboard hook in a resident process |
+| Registry value and system-settings changes | Scope unchanged | `ClearPageFileAtShutdown`, `LargeSystemCache` and `DisablePagingExecutive` are still never written; the only exception is the startup value above |
 | Default mask | `Combined` equals `REDUCT_MASK_DEFAULT` | The same six regions run by default; the two freezes stay opt-in |
 | Third-party executable | Intentionally excluded | No MemReduct binary is bundled or downloaded; Win32/NT APIs are called directly |
 | Modal confirmation dialog | Intentionally excluded | The GUI uses an inline risk acknowledgement and inline result text |

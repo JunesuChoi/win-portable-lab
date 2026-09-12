@@ -132,7 +132,7 @@ function Get-WplText {
         GuiMemory=@{ko='CPU · RAM 안정성';en='CPU and RAM stability'}
         GuiMemoryClean=@{ko='메모리 정리';en='Clean memory'}
         GuiMemoryCleanTitle=@{ko='네이티브 메모리 정리';en='Native memory cleanup'}
-        GuiMemoryCleanIntro=@{ko='MemReduct의 정리 영역 8개를 모두 같은 네이티브 API로 수행합니다. 작업은 일시적이며 레지스트리 값이나 영구 설정을 변경하지 않습니다. 실행 순서와 기본 선택은 MemReduct의 기본 마스크와 같습니다.';en='All eight MemReduct cleanup regions are performed through the same native APIs. The operation is temporary and changes no registry value or persistent setting. Order and default selection match MemReduct default mask.'}
+        GuiMemoryCleanIntro=@{ko='MemReduct의 정리 영역 8개를 모두 같은 네이티브 API로 수행합니다. 작업은 일시적입니다. 원팩이 쓸 수 있는 레지스트리 값은 아래의 선택형 시작 등록 하나뿐입니다. 실행 순서와 기본 선택은 MemReduct의 기본 마스크와 같습니다.';en='All eight MemReduct cleanup regions are performed through the same native APIs. The operation is temporary; the only registry value the pack can write is the optional startup entry below. Order and default selection match MemReduct default mask.'}
         GuiMemoryCleanRisk=@{ko='대기 목록과 수정 목록을 선택하면 재사용 가능한 캐시와 아직 기록되지 않은 페이지까지 버려집니다. 이 두 항목만 확인이 필요하며, 나머지는 기본 정리입니다. 이 기능은 누수 진단이나 안정성 테스트가 아닙니다.';en='Selecting the standby and modified lists discards reusable cache and pages that have not been written yet. Only these two need acknowledgement; the rest are the default cleanup. This is not a leak diagnostic or a stability test.'}
         GuiMemoryCleanRun=@{ko='선택 항목 정리';en='Clean selected'}
         GuiMemoryCleanRefresh=@{ko='새로고침';en='Refresh'}
@@ -174,6 +174,43 @@ function Get-WplText {
         MemoryFailed=@{ko='실패';en='Failed'}
         MemoryUnavailable=@{ko='확인 불가';en='Unavailable'}
         MemoryCliFailed=@{ko='메모리 정리 실패: {0} (로그: {1})';en='Memory cleanup failed: {0} (log: {1})'}
+        GuiMemoryAutoTitle=@{ko='자동 정리 · 상주 모니터링';en='Automatic cleanup and resident monitoring'}
+        GuiMemoryAutoIntro=@{ko='사용률이 기준을 넘으면 기본 묶음을 자동으로 정리합니다. MemReduct의 자동 축소와 같은 방식이며, 설정은 원팩 폴더의 config\settings.json에만 기록됩니다.';en='Cleans the default plan automatically once usage crosses the threshold, the same idea as MemReduct automatic reduction. The preference is written only to config\settings.json inside the pack.'}
+        GuiMemoryAutoEnable=@{ko='자동 정리 사용';en='Enable automatic cleanup'}
+        GuiMemoryAutoThreshold=@{ko='기준 사용률 %';en='Threshold percent'}
+        GuiMemoryAutoCooldown=@{ko='최소 간격 초';en='Cooldown seconds'}
+        GuiMemoryAutoInterval=@{ko='확인 주기 초';en='Check interval seconds'}
+        GuiMemoryAutoStartup=@{ko='Windows 시작 시 상주 실행 등록 (HKCU Run, 해제 가능)';en='Register for Windows startup (HKCU Run, removable)'}
+        GuiMemoryAutoSave=@{ko='자동 정리 설정 저장';en='Save automatic cleanup settings'}
+        GuiMemoryAutoSaved=@{ko='자동 정리 설정을 저장했습니다. 기준 {0}% · 간격 {1}초 · 확인 {2}초';en='Automatic cleanup settings saved. Threshold {0}% · cooldown {1}s · check {2}s'}
+        GuiMemoryAutoSaveFailed=@{ko='자동 정리 설정을 저장하지 못했습니다: {0}';en='Could not save the automatic cleanup settings: {0}'}
+        GuiMemoryAutoSample=@{ko='현재 사용률 {0}%';en='Current usage {0}%'}
+        GuiMemoryAutoStateOn=@{ko='자동 정리 켜짐 · 기준 {0}% · 현재 {1}%';en='Automatic cleanup on · threshold {0}% · now {1}%'}
+        GuiMemoryAutoStateOff=@{ko='자동 정리 꺼짐';en='Automatic cleanup off'}
+        GuiMemoryAutoRunning=@{ko='자동 정리 실행 중입니다...';en='Automatic cleanup is running...'}
+        GuiMemoryAutoRan=@{ko='자동 정리 완료 · 확보 {0} · 기준 {1}% 초과';en='Automatic cleanup complete · freed {0} · threshold {1}% exceeded'}
+        GuiMemoryAutoIdle=@{ko='자동 정리 대기 중 · 사유 {0}';en='Automatic cleanup waiting · reason {0}'}
+        GuiMemoryAutoReasonBelowThreshold=@{ko='기준 미만';en='below threshold'}
+        GuiMemoryAutoReasonCooldown=@{ko='최소 간격 유지';en='within cooldown'}
+        GuiMemoryAutoReasonDisabled=@{ko='사용 안 함';en='disabled'}
+        GuiMemoryAutoReasonUnknownUsage=@{ko='사용률 확인 불가';en='usage unavailable'}
+        GuiMemoryAutoReasonThresholdReached=@{ko='기준 도달';en='threshold reached'}
+        GuiMemoryAutoToggledOn=@{ko='자동 정리를 켰습니다.';en='Automatic cleanup turned on.'}
+        GuiMemoryAutoToggledOff=@{ko='자동 정리를 껐습니다.';en='Automatic cleanup turned off.'}
+        GuiMemoryAutoNeedsAdmin=@{ko='자동 정리 실행에는 관리자 권한이 필요합니다. 상주 창은 보고만 하며, 관리자로 다시 열면 자동 정리가 동작합니다.';en='Automatic cleanup needs administrator rights. The resident window only reports; reopen it as administrator to let automatic cleanup act.'}
+        GuiMemoryAutoFreezeBlocked=@{ko='자동 정리에는 대기 목록·수정 목록을 지정할 수 없습니다. 기본 묶음만 사용하십시오.';en='Automatic cleanup cannot target the standby and modified lists. Use the default plan.'}
+        GuiMemoryAutoStartupOn=@{ko='Windows 시작 등록됨';en='Registered for startup'}
+        GuiMemoryAutoStartupOff=@{ko='Windows 시작 미등록';en='Not registered for startup'}
+        GuiMemoryTrayTooltip=@{ko='원팩 포터블 코리아 · 메모리 자동 정리';en='OnePack Portable Korea · automatic memory cleanup'}
+        GuiMemoryTrayOpen=@{ko='원팩 열기';en='Open OnePack'}
+        GuiMemoryTrayClean=@{ko='지금 정리';en='Clean now'}
+        GuiMemoryTrayToggle=@{ko='자동 정리 켜기/끄기';en='Toggle automatic cleanup'}
+        GuiMemoryTrayExit=@{ko='종료';en='Exit'}
+        StartupRegistered=@{ko='Windows 시작 등록 완료: {0}';en='Registered for Windows startup: {0}'}
+        StartupUnregistered=@{ko='Windows 시작 등록을 해제했습니다. 남은 항목이 없습니다.';en='Removed the Windows startup entry. Nothing is left behind.'}
+        StartupStatusRegistered=@{ko='Windows 시작 등록됨: {0}';en='Registered for Windows startup: {0}'}
+        StartupStatusMissing=@{ko='Windows 시작 등록 없음';en='No Windows startup entry'}
+        StartupLauncherMissing=@{ko='실행 파일을 찾을 수 없습니다: {0}';en='Launcher not found: {0}'}
         GuiGpu=@{ko='GPU · DDU';en='GPU and DDU'}
         GuiRefreshSystem=@{ko='시스템 정보 새로고침';en='Refresh system information'}
         GuiReusingSnapshot=@{ko='기존 시스템 스냅샷으로 권장 목록을 전환합니다...';en='Switching recommendations using the existing system snapshot...'}
