@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packageId": "easyhci",
+  "catalogId": "easyhci",
+  "displayName": "EasyHCI",
+  "version": "1.1.0",
+  "package": {
+    "kind": "zip",
+    "fileName": "EasyHCI.zip"
+  },
+  "source": {
+    "url": "https://github.com/JunesuChoi/EasyHCI/releases/download/v1.1.0/EasyHCI.zip",
+    "trust": "official-github-release",
+    "sha256": "E450A3DA4A9D459E1E88DA292695DBE645E9F8762E9211791188F8003BAF9CD0"
+  },
+  "risk": {
+    "highLoad": true,
+    "writesData": false,
+    "requiresAdmin": true,
+    "requiresReboot": false
+  },
+  "redistribution": {
+    "allowed": true,
+    "note": "MIT licensed fork of Manbocoon/EasyHCI, notice retained. The archive carries no HCI MemTest binary: memtest.exe stays a separate download from HCI Design because it is proprietary freeware and may not be embedded or redistributed."
+  },
+  "update": {
+    "strategy": "github-release"
+  }
+}
+

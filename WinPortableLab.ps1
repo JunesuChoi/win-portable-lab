@@ -427,6 +427,7 @@ function Get-WplToolGuideName([string]$CatalogId) {
         'fulleventlogview' { 'DRIVER_DIAGNOSTICS_REFERENCE' }
         'testmem5' { 'TESTMEM5' }
         'hci-memtest' { 'HCI_MEMTEST' }
+        'easyhci' { 'EASYHCI' }
         'latencymon' { 'LATENCYMON' }
         'batteryinfoview' { 'BATTERYINFOVIEW' }
         'wiztree' { 'WIZTREE' }

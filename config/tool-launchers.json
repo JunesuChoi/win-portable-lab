@@ -54,5 +54,6 @@
   { "id": "aida64-extreme", "catalogId": "aida64-extreme", "pattern": "aida64.exe", "risk": "high-load", "launchMode": "gui" },
   { "id": "cinebench-2024", "catalogId": "cinebench-2024", "pattern": "Cinebench.exe", "risk": "high-load", "launchMode": "gui" },
   { "id": "3dmark", "catalogId": "3dmark", "pattern": "3DMark.exe", "risk": "very-high-load", "launchMode": "gui" },
-  { "id": "blender-benchmark", "catalogId": "blender-benchmark", "pattern": "benchmark-launcher.exe", "risk": "very-high-load", "launchMode": "gui" }
+  { "id": "blender-benchmark", "catalogId": "blender-benchmark", "pattern": "benchmark-launcher.exe", "risk": "very-high-load", "launchMode": "gui" },
+  { "id": "easyhci", "catalogId": "easyhci", "pattern": "EasyHCI.exe", "risk": "high-load", "launchMode": "gui" }
 ]

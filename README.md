@@ -1,8 +1,8 @@
 ﻿﻿﻿﻿# WinPortableLab
 
-**USB 하나로 끝내는 Windows 11 하드웨어 진단 콘솔. 44개 도구 카탈로그, 호스트에는 아무것도 설치하지 않습니다.**
+**USB 하나로 끝내는 Windows 11 하드웨어 진단 콘솔. 45개 도구 카탈로그, 호스트에는 아무것도 설치하지 않습니다.**
 
-**A portable Windows 11 hardware diagnostics console. One USB stick, a 44-tool catalog, zero installers on the host.**
+**A portable Windows 11 hardware diagnostics console. One USB stick, a 45-tool catalog, zero installers on the host.**
 
 [![CI](https://github.com/JunesuChoi/win-portable-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/JunesuChoi/win-portable-lab/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
@@ -129,9 +129,9 @@ Tasks that require admin rights elevate themselves through a UAC prompt at launc
 
 ## 📦 The catalog / 도구 카탈로그
 
-용도가 이름에 드러나는 10개 폴더에 44개 도구가 있습니다. 폴더 이름만 봐도 그 도구를 어디에 쓰는지 알 수 있습니다.
+용도가 이름에 드러나는 10개 폴더에 45개 도구가 있습니다. 폴더 이름만 봐도 그 도구를 어디에 쓰는지 알 수 있습니다.
 
-44 tools across 10 purpose-named folders, so the layout tells you what a tool is for before you open it.
+45 tools across 10 purpose-named folders, so the layout tells you what a tool is for before you open it.
 
 | 폴더 / Folder | 영역 / Covers | 주요 도구 / Notable |
 |---|---|---|
