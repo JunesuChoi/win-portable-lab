@@ -3,15 +3,15 @@
   "packageId": "easyhci",
   "catalogId": "easyhci",
   "displayName": "EasyHCI",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "package": {
     "kind": "zip",
     "fileName": "EasyHCI.zip"
   },
   "source": {
-    "url": "https://github.com/JunesuChoi/EasyHCI/releases/download/v1.1.0/EasyHCI.zip",
+    "url": "https://github.com/JunesuChoi/EasyHCI/releases/download/v1.2.0/EasyHCI.zip",
     "trust": "official-github-release",
-    "sha256": "E450A3DA4A9D459E1E88DA292695DBE645E9F8762E9211791188F8003BAF9CD0"
+    "sha256": "EBC0D3E94C47EB00572B605E6C4717C0350A11E0B5E041D8D43B7E4E68AC8B2C"
   },
   "risk": {
     "highLoad": true,
@@ -27,4 +27,3 @@
     "strategy": "github-release"
   }
 }
-

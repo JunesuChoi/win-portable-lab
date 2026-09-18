@@ -94,7 +94,13 @@ function Test-WplProgramVisible {
 
     $trimmedQuery = ([string]$Query).Trim()
     if ($trimmedQuery) {
-        $matchesQuery = ([string]$Program.displayName -like "*$trimmedQuery*") -or ([string]$Program.id -like "*$trimmedQuery*")
+        # The GUI decorates each row with displayName before filtering, but the
+        # predicate is also called from tests and could be reached from a caller
+        # that has not, and strict mode turns a missing property into a crash.
+        $names = $Program.PSObject.Properties.Name
+        $displayName = if ($names -contains 'displayName') { [string]$Program.displayName } else { [string]$Program.id }
+        $id = if ($names -contains 'id') { [string]$Program.id } else { '' }
+        $matchesQuery = ($displayName -like "*$trimmedQuery*") -or ($id -like "*$trimmedQuery*")
         if (-not $matchesQuery) { return $false }
     }
 

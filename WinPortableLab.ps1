@@ -200,6 +200,7 @@ function New-ProgramConnectionPlan([string]$RecommendationDirectory,[string]$Sel
     }
     if ($SelectedProfile -in @('deep','memory','all')) {
         Add-Candidate $candidates 'hci-memtest' 'guided-test' 'RecHciMemtest'
+        Add-Candidate $candidates 'easyhci' 'guided-test' 'RecEasyHci'
         Add-Candidate $candidates 'ventoy' 'conditional-boot-media' 'RecVentoy'
         Add-Candidate $candidates 'aida64-extreme' 'guided-test' 'RecMemoryBenchmark'
         Add-Candidate $candidates 'cinebench-2024' 'guided-test' 'RecRenderBenchmark'

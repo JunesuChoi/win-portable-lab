@@ -76,6 +76,7 @@ function Get-WplText {
         RecTcpView=@{ko='프로세스별 네트워크 연결과 원격 주소를 읽기 전용으로 확인합니다.';en='Lists per-process network connections and remote endpoints read-only.'}
         RecTestMem5=@{ko='메모리 오버클럭 서브타이밍 오류를 짧은 시간에 검출합니다.';en='Detects memory overclock sub-timing errors quickly.'}
         RecHciMemtest=@{ko='커버리지를 누적해 메모리 오류를 오래 검증합니다. 무료판은 인스턴스를 수동으로 나눠 실행합니다.';en='Validates memory over long runs by accumulating coverage. The free edition needs manually split instances.'}
+        RecEasyHci=@{ko='HCI MemTest를 대신 굴려주는 런처입니다. 할당량과 인스턴스 수를 자동으로 잡고 커버리지를 모아 줍니다. memtest.exe는 HCI Design에서 직접 받아야 합니다.';en='A launcher that runs HCI MemTest for you: it sizes the allocation, starts one instance per thread and aggregates coverage. memtest.exe still comes from HCI Design.'}
         RecLatencyMon=@{ko='DPC·ISR 지연을 측정해 소리 끊김과 미세 멈춤의 드라이버 원인을 찾습니다.';en='Measures DPC and ISR latency to find the driver behind audio dropouts and micro stutter.'}
         RecBatteryInfo=@{ko='배터리 설계 용량 대비 마모율과 충전 사이클을 확인합니다.';en='Reports battery wear against designed capacity and the charge cycle count.'}
         RecWizTree=@{ko='쓰기 테스트 전에 디스크 여유 공간과 대용량 항목을 빠르게 확인합니다.';en='Quickly reviews free space and large items before a write test.'}
