@@ -121,9 +121,9 @@ Before the registry release, you can also install straight from GitHub.
 npm install -g github:JunesuChoi/win-portable-lab
 ```
 
-관리자 권한이 필요한 작업은 실행 중 UAC 확인창으로 승격됩니다.
+관리자 권한이 필요한 도구는 매니페스트의 `requiresAdmin` 선언에 따라 실행할 때 UAC로 승격됩니다. 읽기 전용 도구는 승격을 요구하지 않습니다.
 
-Tasks that require admin rights elevate themselves through a UAC prompt at launch.
+A tool that declares `requiresAdmin` in its manifest elevates through a UAC prompt when it is launched. Read-only tools never ask for elevation.
 
 ---
 
@@ -173,9 +173,9 @@ Windows PowerShell 5.1 and PowerShell 7 behave differently in ways that quietly 
 .\scripts\Test-Regression.ps1 -Root .
 ```
 
-테스트 81개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 되돌릴 수 없는 변경만 확인 창으로 막는지, 고부하 세션 스크립트가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지, 메모리 사용량 산술이 2 GB를 넘어도 Int32 오버플로로 멈추지 않는지, 메모리 정리 영역 8개가 MemReduct 기본 마스크와 같은지입니다.
+테스트 82개를 두 런타임에서, Pester 3.4와 Pester 6으로 모두 실행합니다. 검증 대상은 실제로 중요한 동작입니다. 색 리터럴이 디자인 토큰 블록을 벗어나지 않는지, 발견 전용 행이 실행 불가로 유지되는지, 목록 필터가 실제 행을 걸러내는지, 되돌릴 수 없는 변경만 확인 창으로 막는지, 고부하 세션 스크립트가 온도 감시 승인 없이는 시작되지 않는지, 부트스트랩이 먼저 끝난 뒤 남은 작업 프로세스까지 추적되는지, 메모리 사용량 산술이 2 GB를 넘어도 Int32 오버플로로 멈추지 않는지, 메모리 정리 영역 8개가 MemReduct 기본 마스크와 같은지입니다.
 
-81 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that only an irreversible change is gated behind a confirmation dialog, that the high-load session script still refuses to start without a temperature-monitoring acknowledgement, that a worker surviving its exited bootstrap is still tracked and stopped, that used-memory arithmetic survives a total above 2 GB without an Int32 overflow, and that the eight native memory regions still match the MemReduct default mask.
+82 tests, both runtimes, both Pester 3.4 and Pester 6. The tests assert behaviour that matters: that colour literals never escape the design token block, that discovery-only rows stay unlaunchable, that each list filter actually removes rows, that only an irreversible change is gated behind a confirmation dialog, that the high-load session script still refuses to start without a temperature-monitoring acknowledgement, that a worker surviving its exited bootstrap is still tracked and stopped, that used-memory arithmetic survives a total above 2 GB without an Int32 overflow, and that the eight native memory regions still match the MemReduct default mask.
 
 ---
 

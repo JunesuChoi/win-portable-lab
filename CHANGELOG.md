@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Tool launches now raise a tool that declares `requiresAdmin` above the caller's token, so a standard-user console no longer hands an administrator tool a standard-user token. Read-only tools are never prompted, and the launch record now stores whether the tool was elevated.
 - Added EasyHCI, a maintained fork of Manbocoon/EasyHCI that automates the free HCI MemTest by detecting the safe per-instance allocation, starting one process per CPU thread and aggregating coverage across them.
 - The EasyHCI fork builds from a clean clone, drops the 30 vendored Fody and Costura files, and ships no HCI MemTest binary; the launcher locates the copy this pack downloads instead, so the two entries work together with no configuration.
 - Reached full Mem Reduct parity with eight native cleanup regions: added volume write cache, registry cache and physical memory list merging, and made `Combined` reproduce `REDUCT_MASK_DEFAULT` exactly.

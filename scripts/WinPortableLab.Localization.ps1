@@ -32,6 +32,7 @@ function Get-WplText {
         RiskBlocked=@{ko="'{0}'의 위험 등급은 '{1}'입니다. 관련 안내서를 읽은 뒤 -AcknowledgeRisk로 다시 실행하십시오.";en="'{0}' has risk '{1}'. Re-run with -AcknowledgeRisk after reading the applicable guide."}
         ManualTemperatureMonitoringRequired=@{ko="'{0}'은(는) 고부하 도구입니다. HWiNFO 등으로 온도를 직접 감시할 준비를 한 뒤 -AcknowledgeManualTemperatureMonitoring과 함께 다시 실행하십시오.";en="'{0}' is a high-load tool. Prepare visible temperature monitoring in HWiNFO or an equivalent sensor view, then re-run with -AcknowledgeManualTemperatureMonitoring."}
         Started=@{ko='{0} 실행: {1}';en='Started {0} from {1}'}
+        LaunchElevating=@{ko='관리자 권한이 필요한 도구입니다. 권한 상승을 요청합니다: {0}';en='This tool needs administrator rights, requesting elevation: {0}'}
         ExternalBootOnly=@{ko="'{0}'은 부팅형 도구입니다. 실행 파일 대신 안내서에 따라 USB 부팅 미디어를 준비하십시오.";en="'{0}' is a bootable tool. Prepare USB boot media using the guide instead of launching an executable."}
         UnknownToolId=@{ko='알 수 없는 도구 ID: {0}';en='Unknown tool id: {0}'}
         NoBinaryDownloaded=@{ko='이 준비 단계에서는 외부 바이너리를 다운로드하지 않았습니다.';en='No third-party binaries were downloaded automatically.'}

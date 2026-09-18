@@ -54,7 +54,8 @@ function Start-WplProcess {
     param(
         [Parameter(Mandatory)][string]$FilePath,
         [string]$WorkingDirectory,
-        [AllowEmptyCollection()][string[]]$ArgumentList = @()
+        [AllowEmptyCollection()][string[]]$ArgumentList = @(),
+        [switch]$RunElevated
     )
 
     if (-not (Test-Path -LiteralPath $FilePath -PathType Leaf)) { throw "Executable not found: $FilePath" }
@@ -64,6 +65,13 @@ function Start-WplProcess {
         # Windows PowerShell 5.1 joins string[] itself and loses required quoting.
         # Supplying one CommandLineToArgvW-compatible string behaves consistently in 5.1 and 7.
         $parameters.ArgumentList = ConvertTo-WplWindowsCommandLine -ArgumentList $ArgumentList
+    }
+    if ($RunElevated) {
+        # ShellExecute with the runas verb is the only supported way to raise a
+        # child above the caller's own token. Start-Process rejects -WindowStyle
+        # together with -Verb, so the caller's window handling is not forwarded
+        # here; that combination would throw before the process ever started.
+        $parameters.Verb = 'RunAs'
     }
     return Start-Process @parameters
 }

@@ -872,6 +872,47 @@ Describe 'Elevated launch integrity contract' {
         $pnp = @([regex]::Matches($inventory,'\$inventory\.PnpProblems \| ConvertTo-Html')).Count
         Assert-WplTest ($pnp -eq 1) "The PnP table is rendered $pnp times in the report; it must render once."
     }
+
+    It 'raises a tool that declares requiresAdmin above the caller token' {
+        # Whether a tool needs administrator rights belongs to the tool, not to the
+        # console that asked for it. The shared launcher is what the console action
+        # and the menu both use, so the decision has to live there.
+        $process = Get-Content -LiteralPath (Join-Path $root 'src\WinPortableLab.Process.psm1') -Raw
+        Assert-WplTest ($process.Contains('[switch]$RunElevated')) 'The shared process helper cannot elevate.'
+        # Single-quoted on purpose: a double-quoted needle would interpolate
+        # $parameters and silently assert against a shorter string.
+        Assert-WplTest ($process.Contains('$parameters.Verb = ''RunAs''')) 'The helper never requests the runas verb.'
+        Assert-WplTest (-not $process.Contains('$parameters.WindowStyle')) 'WindowStyle is forwarded with the runas verb, which Start-Process rejects.'
+
+        $launcher = Get-Content -LiteralPath (Join-Path $root 'scripts\Open-PortableTool.ps1') -Raw
+        Assert-WplTest ($launcher.Contains('Get-WplPackageDefinitions')) 'The launcher never reads the admin requirement.'
+        Assert-WplTest ($launcher.Contains('requiresAdmin')) 'The launcher ignores the requiresAdmin flag.'
+        Assert-WplTest ($launcher.Contains('Test-WplAdministrator')) 'The launcher cannot tell whether it is already elevated.'
+        Assert-WplTest ($launcher.Contains('RunElevated:$needsElevation')) 'The elevation decision never reaches the helper.'
+        Assert-WplTest ($launcher.Contains('elevated=$needsElevation')) 'The launch record does not say whether the tool was elevated.'
+
+        # The data the decision depends on has to keep saying so.
+        $definitions = @(Get-WplPackageDefinitions -Root $root)
+        foreach ($id in @('testmem5','easyhci','ddu','wiztree')) {
+            $definition = @($definitions | Where-Object { $_.catalogId -eq $id }) | Select-Object -First 1
+            Assert-WplTest ($definition -and [bool]$definition.risk.requiresAdmin) "$id no longer declares requiresAdmin."
+        }
+        foreach ($id in @('cpuz','hwinfo')) {
+            $definition = @($definitions | Where-Object { $_.catalogId -eq $id }) | Select-Object -First 1
+            Assert-WplTest ($definition -and -not [bool]$definition.risk.requiresAdmin) "$id must not demand elevation."
+        }
+
+        # A launcher may name admin in its own tier even when the package cannot:
+        # the Sysinternals suite mixes both kinds of tool under one package.
+        Assert-WplTest ($launcher.Contains("`$selected.Risk -match 'admin'")) 'The launcher ignores its own admin risk tier.'
+        $launchers = @(Read-WplJson -Path (Join-Path $root 'config\tool-launchers.json'))
+        $package = @($definitions | Where-Object { $_.catalogId -eq 'sysinternals' }) | Select-Object -First 1
+        Assert-WplTest ($package -and -not [bool]$package.risk.requiresAdmin) 'The Sysinternals package unexpectedly claims to need admin for every tool.'
+        foreach ($id in @('sysinternals-coreinfo','sysinternals-rammap')) {
+            $entry = @($launchers | Where-Object { $_.id -eq $id }) | Select-Object -First 1
+            Assert-WplTest ($entry -and [string]$entry.risk -match 'admin') "$id must keep its admin risk tier."
+        }
+    }
 }
 
 Describe 'Native memory cleanup contract' {

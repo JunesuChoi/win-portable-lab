@@ -49,11 +49,31 @@ if ($overrideTrust -and -not $overrideTrust.IsTrusted -and -not $AcknowledgeRisk
 }
 
 $selectedArguments = @($selected.Arguments | Where-Object { $null -ne $_ })
+
+# Whether a tool needs administrator rights is a property of the tool, not of the
+# console that asked for it. The package definition is the source of truth, so a
+# tool that declares requiresAdmin is raised above a standard-user token instead
+# of silently inheriting it. Read-only tools are never prompted for.
+$requiresAdmin = $false
+try {
+    $definition = @(Get-WplPackageDefinitions -Root $Root | Where-Object { [string]$_.catalogId -eq [string]$selected.CatalogId }) | Select-Object -First 1
+    if ($definition -and ($definition.risk.PSObject.Properties.Name -contains 'requiresAdmin')) {
+        $requiresAdmin = [bool]$definition.risk.requiresAdmin
+    }
+}
+catch { $requiresAdmin = $false }
+# A launcher can be more specific than the package it belongs to. The Sysinternals
+# suite ships tools that need administrator rights next to tools that do not, so a
+# launcher whose own risk tier names admin outranks the package-level flag.
+if ([string]$selected.Risk -match 'admin') { $requiresAdmin = $true }
+$needsElevation = $requiresAdmin -and -not (Test-WplAdministrator)
+
 $launchId = '{0}-{1}-{2}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'),$selected.Id,([guid]::NewGuid().ToString('N').Substring(0,8))
 $launchRecordPath = Join-Path $Root ('logs\tool-launches\{0}.json' -f $launchId)
 $launchRecord = [ordered]@{
     schemaVersion=1;launchId=$launchId;launcherId=$selected.Id;executable=$selected.Executable
     arguments=$selectedArguments;requestedAt=(Get-Date).ToString('o');state='starting';processId=$null
+    requiresAdmin=$requiresAdmin;elevated=$needsElevation
     startupObservedMilliseconds=$null;exitCode=$null;error=$null
 }
 Write-WplJsonAtomic -Path $launchRecordPath -InputObject $launchRecord
@@ -61,7 +81,8 @@ Write-WplJsonAtomic -Path $launchRecordPath -InputObject $launchRecord
 # utilities exit immediately, often non-zero, when they are already running.
 $preLaunchInstanceIds = @(Get-WplSameImageProcessIds -ExecutablePath $selected.Executable)
 try {
-    $process = Start-WplProcess -FilePath $selected.Executable -WorkingDirectory (Split-Path $selected.Executable) -ArgumentList $selectedArguments
+    if ($needsElevation) { Write-Host (Get-WplText -Key LaunchElevating -Language $Language -ArgumentList @($Id)) -ForegroundColor Cyan }
+    $process = Start-WplProcess -FilePath $selected.Executable -WorkingDirectory (Split-Path $selected.Executable) -ArgumentList $selectedArguments -RunElevated:$needsElevation
     $launchRecord.processId = $process.Id
     $startup = Wait-WplProcessStartup -Process $process -ObservationMilliseconds 1000
     $launchRecord.startupObservedMilliseconds = $startup.ObservedMilliseconds
